@@ -31,14 +31,6 @@ What is still open. Things that are done are not listed.
   the palette, the resolution against the one TOS assumes), the order and the moment of those writes (in the
   vertical blank or not), and whether a timer of the display code can still fire after the vectors are restored.
 
-- **Enemy plane stays in the forward view** (P2, seen on a Mega STE): a carrier bomber torpedoed the carrier and
-  flew off; long after it was gone the forward view still showed a plane ahead, also with the own plane standing on
-  the deck. To look at: the plane list of the forward view (`fpv_draw`: planes within 6..160 cells ahead) against
-  planes that have left the map or were removed, and whether the view is recomposed when the last plane goes.
-
-- **Sinking own carrier: one pixel row of the flag mast stays behind** (P3, seen on a Mega STE): the flag, the crew
-  and the elevator platform go down with the ship now, but a 1 px piece of the mast stays where it was.
-
 ## Differences from the Amiga still open
 
 - **Enemy ships don't bob** on the waves. The original (measured in vAmiga, map g's ship): the whole
