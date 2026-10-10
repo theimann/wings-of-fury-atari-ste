@@ -82,8 +82,6 @@ What is still open. Things that are done are not listed.
 
 ## Undecided
 
-- **Throttle feel:** pushing toward the nose raises the airspeed from 1000 to 1400 as in the original code, but
-  acceleration feels "missing" on the STE. What is expected (sound, movement on screen) is not clear.
 - **Frame pacing:** 3 VBLs per frame (16.7 fps, the Amiga's own rate) is the default.
 - **Keys of ours** (H, Esc pause page, Ctrl+Q): keep per target or not.
 
