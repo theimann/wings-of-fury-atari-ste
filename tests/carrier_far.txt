@@ -1,0 +1,20 @@
+# far out over the open sea to the right of the carrier (beyond the map's right end, on the treadmill), flying
+# towards it: the gear must stay up and the forward view must show open sea until the carrier is truly near (03: within 1280 px, gear down, the carrier in the view).
+# AWAY / GOTO = test aids.
+# EXPECT states 1 0
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+GOTO 8300
+AWAY 20000
+40 L
+SNAP 01_far_out_20000
+60 L
+SNAP 02_still_far_out
+GOTO 8300
+AWAY 0
+12 L
+SNAP 03_carrier_near
+END

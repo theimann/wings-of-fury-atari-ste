@@ -50,6 +50,10 @@ What is still open. Things that are done are not listed.
   for a moment, then the panel came up but the playfield stayed black. Not reproduced in Hatari with the same steps
   (`tests/rank_restart.txt`, `rank_restart2.txt`). Seen with an earlier build; open whether the current one does it.
 
+- **Open sea beyond a map end: other distance rules** (P3): far out, the plane's map position is held near the
+  map's end. The gear and the forward view use the true position since this was found (`tests/carrier_far.txt`).
+  Not checked: whether guns, ships or enemy planes near that end still react to a plane that is truly far away.
+
 ## Differences from the Amiga still open
 
 - **Enemy ships don't bob** on the waves. The original (measured in vAmiga, map g's ship): the whole

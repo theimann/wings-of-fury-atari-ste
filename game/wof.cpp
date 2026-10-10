@@ -4022,7 +4022,9 @@ static void logic_tick(u8 in)
 	if (P.state == PS_FLYING)
 	{
 		s32 d = P.x - HOME_X;
-		P.gear = (g_carrier_ok && d > -1280 && d < 1280) ? 5 : 0;		// (only while the carrier is there)
+		// (only while the carrier is there; over the open sea beyond a map end the map position is not the true
+		// one: clamp_world_x)
+		P.gear = (g_carrier_ok && g_out == 0 && d > -1280 && d < 1280) ? 5 : 0;
 	}
 	else
 	if (P.state == PS_DECK || P.state == PS_ARRESTED)
@@ -4232,6 +4234,13 @@ static bool replay_input(u8 &_in)
 			while (line[i] == ' ') i++;
 			while (line[i] >= '0' && line[i] <= '9') x = x * 10 + (line[i++] - '0');
 			pillbox_hit((s16)x);
+		}
+		else if (line[0] == 'A')										// AWAY <px>: that far out over the open sea beyond the right end (test aid)
+		{
+			s16 i = 4; s32 x = 0;
+			while (line[i] == ' ') i++;
+			while (line[i] >= '0' && line[i] <= '9') x = x * 10 + (line[i++] - '0');
+			g_out = x;
 		}
 		else if (line[0] == 'G')										// GOTO <x>: move the plane to world x (test aid)
 		{
@@ -5703,6 +5712,7 @@ static void fpv_draw(drawcontext_t &_pc)
 		s16 H = (alt >> 4) + 24;									// horizon row G_25336
 		s16 ry = alt >= 81 ? 13 : 13 + ((81 - alt) >> 2);			// target reticle row FUN_141b4
 		s16 xc = (s16)(P.x >> 3);
+		s16 xt = (s16)((P.x + g_out) >> 3);						// the terrain's cell: the true position (clamp_world_x)
 		s16 dir = (P.dir < 0) ? -1 : 1;
 		bool view = !g_zoom && g_fpv_mode > 1;						// (1/8 view: sky and sea only)
 		bool on_deck_cell = false;
@@ -5726,23 +5736,23 @@ static void fpv_draw(drawcontext_t &_pc)
 		{
 			if (s_map != g_map_letter) { s_map = g_map_letter; g_fpv_stale = true; }
 			if (g_fpv_stale) { fpv_reset(); s_xc = 0x7fff; }
-			on_deck_cell = xc >= 0 && xc < MAP_CELLS && (c_map[xc] & 3) == 1;
+			on_deck_cell = xt >= 0 && xt < MAP_CELLS && (c_map[xt] & 3) == 1;
 			s16 hide = 4;
-			if (on_deck_cell) { s16 r = fpv_ship_at(xc); if (r == 0 || r >= 4) hide = 1; }	// over a carrier: its cells are not band objects
+			if (on_deck_cell) { s16 r = fpv_ship_at(xt); if (r == 0 || r >= 4) hide = 1; }	// over a carrier: its cells are not band objects
 			// the scan is redone when the plane has moved 4 cells (the bands are 7..30 cells deep) or turned, and
 			// now and then for changes of the map (wrecked huts)
-			s16 moved = xc - s_xc; if (moved < 0) moved = -moved;
+			s16 moved = xt - s_xc; if (moved < 0) moved = -moved;
 			if (s_dirty == 0 && (moved >= 4 || dir != s_dir || hide != s_hide || ++s_age >= 8))	// (not while a change waits for its copies)
 			{
-				s_xc = xc; s_dir = dir; s_hide = hide; s_age = 0;
+				s_xc = xt; s_dir = dir; s_hide = hide; s_age = 0;
 				fpv_band_t old[11];
 				for (s16 k = 0; k < 11; k++) old[k] = g_fpv_band[k];
 				s16 n = 0;											// FUN_14430: deck cells behind the plane
-				fpv_scan(xc, dir, hide);
+				fpv_scan(xt, dir, hide);
 				if (on_deck_cell)
 				{
-					const u16 *p = &c_map[xc];
-					s16 left = (dir >= 0) ? xc : MAP_CELLS - 1 - xc;
+					const u16 *p = &c_map[xt];
+					s16 left = (dir >= 0) ? xt : MAP_CELLS - 1 - xt;
 					if (left > 95) left = 95;
 					while (n <= left && ((*p >> 2) & 0x1ff) != 0) { n++; p -= dir; }
 				}
