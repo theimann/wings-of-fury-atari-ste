@@ -22,7 +22,7 @@ What is still open. Things that are done are not listed.
 
 ## Known issues
 
-- **A chasing enemy plane does not attack** (P1, seen in Hatari with 1.0.0+f248896): a plane
+- **A chasing enemy plane does not attack** (deferred, seen in Hatari with 1.0.0+f248896): a plane
   that chases the player gets right behind it but does not fire; it turns round, then follows again, and repeats
   that cycle. Looked at so far: a Zero from an airfield (map d) behind a plane flying straight and level holds 131 px
   and fires until the player goes down, so the fighter's attack works. Missions a, b and c have no airfield and no
