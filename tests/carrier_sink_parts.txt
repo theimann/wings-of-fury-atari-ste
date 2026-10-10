@@ -1,0 +1,19 @@
+# map a: the first stages of the own carrier's sinking (KILLCARRIER = the 4th torpedo hit). The tower's flag, the
+# deck crew and the elevator platform go down with the ship, pixel by pixel; the platform is cut off at the water.
+4 -
+1 T
+WAITDECK
+KILLCARRIER
+60 -
+SNAP p01
+60 -
+SNAP p02
+50 -
+SNAP p03
+40 -
+SNAP p04
+30 -
+SNAP p05
+30 -
+SNAP p06
+END

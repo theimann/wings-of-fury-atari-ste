@@ -586,7 +586,6 @@ static inline s16 cell_surface(u16 _c) { return _c & 3; }	// 0 sea, 1 carrier, 2
 
 // object height FUN_00015710 (player.md 8 / table at 0x25712: tre1,tre2,tre3,cama,dugo,huta,pill)
 static s16 carrier_sink_px();			// how far the own carrier's picture has gone down
-static bool carrier_going_down();		// its first tile row has gone under (flags, crew and elevator platform go with it)
 static s16 obj_height(u16 _c)
 {
 	s16 t = (_c >> 2) & 0x1ff;
@@ -2433,7 +2432,6 @@ static void carrier_sink_step()
 }
 
 static s16 carrier_sink_px() { return sink_smooth(SINK_CARRIER) ? g_carrier.stage : g_carrier_sunk * 16; }
-static bool carrier_going_down() { return g_carrier_sunk || (sink_smooth(SINK_CARRIER) && g_carrier.stage >= 16); }
 
 // 11cd8 for the own carrier (per tick)
 static void carrier_tick()
@@ -3614,12 +3612,14 @@ void flag_fntick(entity_t *_pself)
 {
 	entity_t &self = *_pself;
 	s16 k = self.counter;
-	if (k >= NFLAGS || (c_flags[k * 3 + 2] == 0 && (!g_carrier.alive || carrier_going_down())))	// (tower flags: gone with the first sink step)
+	// the tower's flag goes down with the sinking carrier, until it reaches the water
+	s16 sink = (k < NFLAGS && c_flags[k * 3 + 2] == 0) ? carrier_sink_px() : 0;
+	if (k >= NFLAGS || (c_flags[k * 3 + 2] == 0 && (!g_carrier.alive || c_flags[k * 3 + 1] + sink + 24 >= WATER_ROW)))
 	{
 		self.drawtype = EntityDraw_NONE; return;
 	}
 	self.rx = c_flags[k * 3];
-	self.ry = c_flags[k * 3 + 1] + ((c_flags[k * 3 + 2] == 0) ? g_bob_flag - 3 : 0);	// tower: generated at bob 3
+	self.ry = c_flags[k * 3 + 1] + ((c_flags[k * 3 + 2] == 0) ? g_bob_flag - 3 + sink : 0);	// tower: generated at bob 3
 	if (g_zoom || g_help || g_help_peek || g_pause || g_loading || g_page)
 	{
 		self.drawtype = EntityDraw_NONE;	// not drawn in the 1/8 view, nor over the help page
@@ -4468,13 +4468,14 @@ void crew_fntick(entity_t *_pself)
 		s32 d = (s32)c_lso_cells[i] * 8 - P.x; if (d < 0) d = -d;
 		if (d < bd) { bd = d; best = c_lso_cells[i]; }
 	}
-	if (best < 0 || bd > 400 || !g_carrier.alive || carrier_going_down())
+	s16 sink = carrier_sink_px();				// (the crew goes down with the sinking carrier, until the deck is awash)
+	if (best < 0 || bd > 400 || !g_carrier.alive || sink >= 0x21 - 4)
 	{
 		self.drawtype = EntityDraw_NONE;
 		return;
 	}
 	self.rx = MARGIN + best * 8 - CR_AX;
-	self.ry = WATER_ROW + g_bob_drawn - CR_AY;	// carrier cells: + wave bob (as drawn)
+	self.ry = WATER_ROW + g_bob_drawn + sink - CR_AY;	// carrier cells: + wave bob (as drawn)
 	self.frame = (self.counter == 0) ? g_crew_a : 8 + g_crew_b;
 	self.drawtype = EntityDraw_IMSPR;
 }
@@ -7203,12 +7204,19 @@ int AGT_EntryPoint()
 				if (clip && y2 < c.scissor_window_y2) { c.scissor_window_y2 = y2; c.scissor_window_ys = y2 - c.scissor_window_y1; }
 				bool room = !clip || y2 > c.scissor_window_y1;
 				s16 ex = (s16)(HOME_X + MARGIN) - EL_AX;
-				bool elev = g_phase != 1 && g_carrier.alive && !carrier_going_down() && ex > g_cam_x - 80 && ex < g_cam_x + SCREEN_XSIZE + 16;	// 'elev' (FUN_1409c): not in phase 1
+				s16 esink = carrier_sink_px();				// (the platform goes down with the sinking carrier, cut off at the water)
+				bool elev = g_phase != 1 && g_carrier.alive && esink < 0x21 && ex > g_cam_x - 80 && ex < g_cam_x + SCREEN_XSIZE + 16;	// 'elev' (FUN_1409c): not in phase 1
 				if (room && (elev || clip))
 				{
 					AGT_BLiT_IMSprInit();
 					if (elev)
-						AGT_BLiT_IMSprDrawClipped(&c, elev_asset.get(), 0, ex, WATER_ROW - (0x21 - g_bob_drawn - g_elev) - EL_AY);
+					{
+						drawcontext_t ce = c;
+						s16 yw = drawcontext.scissor_window_y1 + (WATER_ROW + 2 - g_cam_y);
+						if (esink && yw < ce.scissor_window_y2) { ce.scissor_window_y2 = yw; ce.scissor_window_ys = yw - ce.scissor_window_y1; }
+						if (ce.scissor_window_y2 > ce.scissor_window_y1)
+							AGT_BLiT_IMSprDrawClipped(&ce, elev_asset.get(), 0, ex, WATER_ROW - (0x21 - g_bob_drawn - g_elev) + esink - EL_AY);
+					}
 					if (clip)
 					{
 						u8 tf = (g_weapon == 2 && g_ammo != 0 && P.frame >= 0 && P.frame < PLANE_FRAMES) ? c_fr_torp[P.frame] : 255;
