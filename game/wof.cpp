@@ -1842,7 +1842,7 @@ static void oil_leak_smoke()
 static void aa_hit(s16 _gx)
 {
 	s16 d = _gx - (s16)P.x; if (d < 0) d = -d;
-	if (d > 448) return;
+	if (d > 448 || g_out) return;				// (g_out: over the open sea beyond a map end, truly out of range)
 	g_aa_fire = true;
 	if (d < g_aa_mind) g_aa_mind = d;
 	s16 alt = P.y < 0 ? 0 : P.y;
@@ -2321,7 +2321,7 @@ static void ship_guns_frame_tick()
 		sgun_t &g = g_sgun[i];
 		g_sgun_frame[i] = -1;
 		const ship_t &sh = g_ship[g.ship];
-		if (!g.alive || !sh.alive || sh.hits <= 0 || P.state != PS_FLYING) continue;
+		if (!g.alive || !sh.alive || sh.hits <= 0 || P.state != PS_FLYING || g_out) continue;	// (g_out: as aa_hit)
 		s16 d = g.x - (s16)P.x; if (d < 0) d = -d;
 		if ((s16)(rnd16() & 511) > d)					// 14efc: in range: sound, splashes that stop torpedoes
 		{
@@ -2847,7 +2847,7 @@ static void zeros_tick()
 			a.roll_x = 0;
 		}
 	}
-	if (!rolling && g_launch_cool == 0)
+	if (!rolling && g_launch_cool == 0 && !g_out)			// (g_out: as aa_hit)
 		for (s16 k = 0; k < (s16)c_nairf; k++)
 		{
 			airfield_t &a = g_airf[k];
@@ -2867,7 +2867,7 @@ static void zeros_tick()
 		b.ex[b.n - 1] -= g_jroll_v >> 4;
 		if (b.ex[b.n - 1] < (s16)g_ship[k].x0) { b.n--; b.roll = 0; zero_spawn(false, b.ex[b.n], 33, -1); }
 	}
-	if (g_launch_cool == 0)
+	if (g_launch_cool == 0 && !g_out)
 		for (s16 k = 0; k < NSHIPS; k++)
 		{
 			shipplanes_t &b = g_splanes[k];
@@ -4235,12 +4235,13 @@ static bool replay_input(u8 &_in)
 			while (line[i] >= '0' && line[i] <= '9') x = x * 10 + (line[i++] - '0');
 			pillbox_hit((s16)x);
 		}
-		else if (line[0] == 'A')										// AWAY <px>: that far out over the open sea beyond the right end (test aid)
+		else if (line[0] == 'A')										// AWAY <px>: that far out over the open sea beyond the right end, negative: the left end (test aid)
 		{
-			s16 i = 4; s32 x = 0;
+			s16 i = 4; s32 x = 0; bool neg = false;
 			while (line[i] == ' ') i++;
+			if (line[i] == '-') { neg = true; i++; }					// (negative: beyond the left end)
 			while (line[i] >= '0' && line[i] <= '9') x = x * 10 + (line[i++] - '0');
-			g_out = x;
+			g_out = neg ? -x : x;
 		}
 		else if (line[0] == 'G')										// GOTO <x>: move the plane to world x (test aid)
 		{

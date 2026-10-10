@@ -1,0 +1,19 @@
+# map j has an enemy ship at the left end of the map. Far out over the open sea beyond it (on the treadmill,
+# 20000 px away) its guns must not fire: the plane flies on unharmed. AWAY / GOTO / MAP = test aids.
+# EXPECT states 1 0
+1 T
+WAITDECK
+MAP j
+4 -
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+GOTO -260
+AWAY -20000
+100 L
+SNAP 01_far_out
+100 L
+SNAP 02_still_flying
+END
