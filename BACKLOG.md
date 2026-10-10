@@ -22,6 +22,15 @@ What is still open. Things that are done are not listed.
 
 ## Known issues
 
+- **Garbled desktop after Ctrl+Q** (P2, seen on a Mega STE with 1.0.0+395b65c, booted from the floppy image on a
+  Gotek): after Ctrl+Q the desktop comes back with a pink tint and a doubled picture (menu text and icons appear
+  twice, shifted sideways); the mouse pointer still moves. An earlier report from the same machine, started from
+  the cartridge, was a white screen with garbled letters and a hang. Not reproduced in Hatari: floppy with TOS 1.62
+  and TOS 2.06, a subfolder, and from the desktop under HDDRIVER all return to a clean desktop. To look at: what the
+  exit leaves in the STE's video registers on the real machine (horizontal scroll `$ff8265`, line width `$ff820f`,
+  the palette, the resolution against the one TOS assumes), the order and the moment of those writes (in the
+  vertical blank or not), and whether a timer of the display code can still fire after the vectors are restored.
+
 - **Enemy plane stays in the forward view** (P2, seen on a Mega STE): a carrier bomber torpedoed the carrier and
   flew off; long after it was gone the forward view still showed a plane ahead, also with the own plane standing on
   the deck. To look at: the plane list of the forward view (`fpv_draw`: planes within 6..160 cells ahead) against
