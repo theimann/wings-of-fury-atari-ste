@@ -5769,12 +5769,15 @@ static void fpv_draw(drawcontext_t &_pc)
 		}
 
 		// base layer (sky, sea, bands, landing view): its list of draw operations is rebuilt when the inputs
-		// changed (always while enemy planes are in the view), and composed when the list changed
+		// changed (always while enemy planes are in the view, and once more when the last one has left it), and
+		// composed when the list changed
 		u32 key = ((u32)s_gen << 16) ^ ((u32)H << 8) ^ (view ? 0x80UL : 0) ^ (on_deck_cell ? 0x40UL : 0)
 			^ (g_fpv_nolanding ? 0x20UL : 0) ^ (u32)g_fpv_mode;
-		if (!worked && (key != s_key || zn))
+		static bool s_planes = false;
+		if (!worked && (key != s_key || zn || s_planes))
 		{
 			s_key = key; g_fpv_stat[1]++;
+			s_planes = zn != 0;
 			g_fpv_nops = 0;
 			if (view)
 			{

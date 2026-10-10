@@ -1,0 +1,21 @@
+# the own plane stands on the deck while a carrier bomber (BOMBER = test aid) attacks and flies off: the forward
+# view shows the bomber while it is ahead, and no plane once it has gone.
+4 -
+1 T
+WAITDECK
+BOMBER
+500 -
+SNAP b01
+150 -
+SNAP b02
+150 -
+SNAP b03
+150 -
+SNAP b04
+150 -
+SNAP b05
+200 -
+SNAP b06
+300 -
+SNAP b07
+END
