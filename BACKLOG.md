@@ -24,9 +24,13 @@ What is still open. Things that are done are not listed.
 
 - **A chasing enemy plane does not attack** (P1, seen in Hatari on a Steam Deck with 1.0.0+f248896): a plane
   that chases the player gets right behind it but does not fire; it turns round, then follows again, and repeats
-  that cycle. To look at: the chase and firing rules (`zero_chase`, the firing test with its distance and
-  direction conditions, the manoeuvre that makes it turn) against the original (FUN_1d796 and the routines around
-  it in `reverse-engineering/notes/enemies.md`), and whether it has always been so or came with a recent change.
+  that cycle. Looked at so far: a Zero from an airfield (map d) behind a plane flying straight and level holds 131 px
+  and fires until the player goes down, so the fighter's attack works. Missions a, b and c have no airfield and no
+  ship: the only enemy planes there are the carrier bombers, which never fire at the player in the original either
+  (`zero_bomber`, FUN_1dea4): they go for the carrier, turn round when they are past it or when their timer runs
+  out, and slow down when the player is behind them. Open: which mission it was. If it was a bomber, this is the
+  original's behaviour; if it was a fighter in a later mission, the case has to be found (turning player, two
+  planes and the attack queue, a plane coming head-on).
 
 - **Garbled desktop after Ctrl+Q** (P2, seen on a Mega STE with 1.0.0+395b65c, booted from the floppy image on a
   Gotek): after Ctrl+Q the desktop comes back with a pink tint and a doubled picture (menu text and icons appear
