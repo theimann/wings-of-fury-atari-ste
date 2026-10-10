@@ -1,0 +1,12 @@
+# panel: planes shot down as two digits plus one small Zero per kill (two rows of 7)
+4 -
+KILLS 3
+2 -
+SNAP 01_three
+KILLS 12
+2 -
+SNAP 02_twelve
+KILLS 99
+2 -
+SNAP 03_ninety_nine
+END

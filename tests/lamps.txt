@@ -1,0 +1,15 @@
+# the oil and fuel warning lamps blink when oil < 116 / fuel <= 64 (replay LOW). They were never drawn before
+# 2026-10-04: AGT's entity pool was exhausted and the lamps' panel sprites did not exist
+4 -
+1 T
+WAITDECK
+LOW
+3 -
+SNAP 01
+2 -
+SNAP 02
+2 -
+SNAP 03
+2 -
+SNAP 04
+END

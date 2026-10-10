@@ -1,0 +1,28 @@
+# map a, on the deck: an enemy plane (replay ZPASS) flies over the carrier and leaves the screen on the left.
+# The plane must stay visible until it has left the screen (AGT's entity pass drops a sprite whose cell starts more
+# than 32 px left of the screen; those are drawn directly)
+4 -
+1 T
+WAITDECK
+ZPASS
+60 -
+SNAP 01
+2 -
+SNAP 02
+2 -
+SNAP 03
+2 -
+SNAP 04
+2 -
+SNAP 05
+2 -
+SNAP 06
+2 -
+SNAP 07
+2 -
+SNAP 08
+2 -
+SNAP 09
+2 -
+SNAP 10
+END

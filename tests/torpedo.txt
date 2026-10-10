@@ -1,0 +1,26 @@
+# weapon menu: DOWN selects the torpedo (1 -> 2), fire takes off; low level flight, drop the torpedo: it enters the
+# water (dy >= -5), runs at 4.27 px/tick leaving a splash wake (not drawn itself)
+# EXPECT states 1 0
+4 -
+1 D
+3 -
+SNAP 01_menu_torpedo
+1 T
+WAITDECK
+1 -
+100 L
+SNAP 02_slung_deck
+22 UL
+SNAP 03_slung_climb
+6 L
+SNAP 04_slung_level
+1 LT
+3 L
+SNAP 05_torpedo_falling
+8 UL
+6 L
+SNAP 06_torpedo_running
+4 UL
+6 L
+SNAP 07_wake
+END

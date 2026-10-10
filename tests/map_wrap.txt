@@ -1,0 +1,21 @@
+# open sea beyond the map (the original's world is a 65536 px circle): past the left end the plane flies on over
+# open sea (treadmill in the sea margin), and after the original's ocean length it comes in at the right end.
+# GOTO / FAROUT = test aids.
+# EXPECT states 1 0
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+30 L
+GOTO 300
+8 L
+SNAP 01_near_left_end
+110 L
+SNAP 02_open_sea
+FAROUT
+60 L
+SNAP 03_in_from_the_right
+60 L
+SNAP 04_back_over_the_map
+END

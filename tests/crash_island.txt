@@ -1,0 +1,19 @@
+# fly to the island and dive into it: burning wreck with explosions and smoke
+# EXPECT states 1 0 4 8
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+210 L
+12 LD
+SNAP 01
+8 -
+SNAP 02
+12 -
+SNAP 03
+25 -
+SNAP 04
+END

@@ -1,0 +1,12 @@
+# carrier wave bob on the deck: snapshots one bob step (21 ticks) apart; deck, plane, crew and flag move together
+1 T
+WAITDECK
+2 -
+SNAP 01
+21 -
+SNAP 02
+21 -
+SNAP 03
+21 -
+SNAP 04
+END

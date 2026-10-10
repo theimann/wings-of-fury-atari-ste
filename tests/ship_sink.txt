@@ -1,0 +1,39 @@
+# map f (replay MAP): the transport at x 5360 (one torpedo hit). Low level torpedo run from x 6000, outside the range
+# of the ship's guns (511 px: their splashes destroy a torpedo near the plane, FUN_14efc); the ship sinks
+# (stage 10: +1000 bonus, stage 120: the ship is gone, ship-less tiles from the band, open sea in the wave strip)
+# EXPECT score 3e8
+MAP f
+4 -
+1 D
+3 -
+1 T
+WAITDECK
+1 -
+100 L
+22 UL
+6 L
+GOTO 6000
+1 LT
+3 L
+SNAP 01_torpedo
+8 UL
+GOTO 5420
+4 L
+SNAP 02_hit
+60 L
+GOTO 5420
+4 L
+SNAP 03_sinking
+100 L
+GOTO 5420
+4 L
+SNAP 04_later
+220 L
+GOTO 5420
+4 L
+SNAP 05_gone
+60 L
+GOTO 5420
+8 L
+SNAP 06_gone_later
+END

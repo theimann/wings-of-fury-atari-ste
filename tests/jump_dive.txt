@@ -1,0 +1,14 @@
+# force a full rebuild at altitude, then dive with the camera scrolling down (isolates the post-rebuild artefact)
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+55 UL
+JUMP
+1 L
+12 LD
+SNAP 01_after
+4 L
+SNAP 02_later
+END

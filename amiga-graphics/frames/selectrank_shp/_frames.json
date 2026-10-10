@@ -1,0 +1,180 @@
+[
+ {
+  "name": "rnk0",
+  "w": 192,
+  "h": 9,
+  "hot_x": 32,
+  "hot_y": -11,
+  "src_x": 64,
+  "src_y": 91,
+  "clear_planes": 0,
+  "set_planes": 0,
+  "opaque": false,
+  "plane_map": [
+   1,
+   14,
+   16
+  ],
+  "colours": [
+   15,
+   16,
+   17
+  ]
+ },
+ {
+  "name": "rnk1",
+  "w": 192,
+  "h": 9,
+  "hot_x": 34,
+  "hot_y": -11,
+  "src_x": 64,
+  "src_y": 101,
+  "clear_planes": 0,
+  "set_planes": 0,
+  "opaque": false,
+  "plane_map": [
+   1,
+   14,
+   16
+  ],
+  "colours": [
+   15,
+   16,
+   17
+  ]
+ },
+ {
+  "name": "rnk2",
+  "w": 192,
+  "h": 9,
+  "hot_x": 32,
+  "hot_y": -11,
+  "src_x": 64,
+  "src_y": 111,
+  "clear_planes": 0,
+  "set_planes": 0,
+  "opaque": false,
+  "plane_map": [
+   1,
+   14,
+   16
+  ],
+  "colours": [
+   15,
+   16,
+   17
+  ]
+ },
+ {
+  "name": "rnk3",
+  "w": 192,
+  "h": 9,
+  "hot_x": 32,
+  "hot_y": -11,
+  "src_x": 64,
+  "src_y": 121,
+  "clear_planes": 0,
+  "set_planes": 0,
+  "opaque": false,
+  "plane_map": [
+   1,
+   14,
+   16
+  ],
+  "colours": [
+   15,
+   16,
+   17
+  ]
+ },
+ {
+  "name": "rnk4",
+  "w": 192,
+  "h": 9,
+  "hot_x": 32,
+  "hot_y": -11,
+  "src_x": 64,
+  "src_y": 131,
+  "clear_planes": 0,
+  "set_planes": 0,
+  "opaque": false,
+  "plane_map": [
+   1,
+   14,
+   16
+  ],
+  "colours": [
+   15,
+   16,
+   17
+  ]
+ },
+ {
+  "name": "rnk5",
+  "w": 192,
+  "h": 9,
+  "hot_x": 33,
+  "hot_y": -11,
+  "src_x": 64,
+  "src_y": 141,
+  "clear_planes": 0,
+  "set_planes": 0,
+  "opaque": false,
+  "plane_map": [
+   1,
+   14,
+   16
+  ],
+  "colours": [
+   15,
+   16,
+   17
+  ]
+ },
+ {
+  "name": "rnk6",
+  "w": 192,
+  "h": 9,
+  "hot_x": 33,
+  "hot_y": -11,
+  "src_x": 64,
+  "src_y": 151,
+  "clear_planes": 0,
+  "set_planes": 0,
+  "opaque": false,
+  "plane_map": [
+   1,
+   14,
+   16
+  ],
+  "colours": [
+   15,
+   16,
+   17
+  ]
+ },
+ {
+  "name": "rnk7",
+  "w": 192,
+  "h": 9,
+  "hot_x": 33,
+  "hot_y": -11,
+  "src_x": 64,
+  "src_y": 161,
+  "clear_planes": 16,
+  "set_planes": 0,
+  "opaque": false,
+  "plane_map": [
+   1,
+   2,
+   4,
+   8
+  ],
+  "colours": [
+   7,
+   8,
+   9,
+   11
+  ]
+ }
+]

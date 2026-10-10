@@ -1,0 +1,28 @@
+# pillbox damage in the 1/8 view: map c (pillbox pair at x 3432 / 3464). Climb into the 1/8 view, go above the
+# pair, then hit the left pillbox (test aid XPILL) at its four cells one after the other: in the 1/8 view its top
+# row loses one pixel per hit (as the Amiga's 8thscale pila..pilp), the right pillbox stays whole.
+MAP c
+4 -
+1 T
+WAITDECK
+1 -
+100 L
+40 UL
+40 UL
+GOTO 3460
+6 L
+SNAP 01_whole
+XPILL 3426
+GOTO 3460
+4 L
+SNAP 02_one_hit
+XPILL 3434
+XPILL 3442
+GOTO 3460
+4 L
+SNAP 03_three_hits
+XPILL 3418
+GOTO 3460
+4 L
+SNAP 04_all_four
+END

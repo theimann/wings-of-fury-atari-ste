@@ -1,0 +1,19 @@
+# night palettes (replay NIGHT toggles them; the game rolls a random bit per mission from map h on): deck, then a
+# low pass over the island
+4 -
+1 T
+WAITDECK
+NIGHT
+6 -
+SNAP 01_night_deck
+1 -
+100 L
+34 UL
+6 L
+GOTO 4300
+30 L
+SNAP 02_night_island
+NIGHT
+6 L
+SNAP 03_day_again
+END

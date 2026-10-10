@@ -1,0 +1,18 @@
+map a: level 9664x576 home=7032 deck=6608..7344 huts=2 bunkers=2 pillboxes=0 islands=1 [450, 0, 0, 0] ships=0 band=582/604 columns
+map b: level 16032x576 home=6112 deck=5688..6424 huts=5 bunkers=5 pillboxes=0 islands=2 [500, 700, 0, 0] ships=0 band=872/1002 columns
+map c: level 17632x576 home=5880 deck=5456..6192 huts=7 bunkers=7 pillboxes=4 islands=3 [1000, 600, 750, 0] ships=0 band=1078/1102 columns
+map d: level 16384x576 home=7456 deck=7032..7768 huts=6 bunkers=6 pillboxes=4 islands=2 [1500, 1100, 0, 0] ships=0 band=937/1024 columns
+map e: level 19104x576 home=10760 deck=10336..11072 huts=9 bunkers=9 pillboxes=6 islands=3 [1000, 900, 1500, 0] ships=0 band=1145/1194 columns
+map f: level 15968x576 home=8416 deck=7992..8728 huts=6 bunkers=6 pillboxes=6 islands=2 [900, 900, 0, 0] ships=1 band=869/998 columns
+map g: level 20896x576 home=10488 deck=10064..10800 huts=8 bunkers=9 pillboxes=10 islands=3 [900, 1200, 1200, 0] ships=1 band=1159/1306 columns
+map h: level 24224x576 home=12920 deck=12496..13232 huts=9 bunkers=9 pillboxes=8 islands=3 [900, 1600, 1000, 0] ships=1 band=1324/1514 columns
+map i: level 24976x576 home=10176 deck=9752..10488 huts=9 bunkers=9 pillboxes=12 islands=3 [1500, 1300, 1300, 0] ships=2 band=1341/1561 columns
+map j: level 10000x576 home=3960 deck=3536..4272 huts=0 bunkers=0 pillboxes=0 islands=0 [0, 0, 0, 0] ships=2 band=506/625 columns
+map k: level 23216x576 home=14408 deck=13984..14720 huts=10 bunkers=8 pillboxes=16 islands=3 [1600, 1500, 2000, 0] ships=1 band=1276/1451 columns
+map l: level 22208x576 home=10184 deck=9760..10496 huts=7 bunkers=6 pillboxes=14 islands=3 [2400, 0, 2500, 0] ships=2 band=1199/1388 columns
+map m: level 30576x576 home=13760 deck=13336..14072 huts=14 bunkers=13 pillboxes=24 islands=4 [3000, 2000, 2200, 2800] ships=2 band=1610/1911 columns
+map n: level 25472x576 home=10904 deck=10480..11216 huts=11 bunkers=9 pillboxes=24 islands=3 [2500, 3000, 3200, 0] ships=2 band=1492/1592 columns
+map o: level 29760x576 home=9696 deck=9272..10008 huts=11 bunkers=9 pillboxes=30 islands=3 [3000, 3000, 3500, 0] ships=3 band=1657/1860 columns
+base_row=299 water_row=288
+plane frames 108 (10x11 cells of 128x48), wheels 20
+palette=000000 00a0f0 f0e060 e06020 309030 904010 808090 104070 c0c0d0 0030d0 4070a0 a0a0b0 606070 404050 f0f0f0 002050

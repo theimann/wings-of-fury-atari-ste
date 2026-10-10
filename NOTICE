@@ -1,0 +1,17 @@
+What the MIT licence in LICENSE covers
+
+Scope. This licence covers the conversion's own work in this repository: the
+game's source (game/wof.cpp, game/snd.h, game/music.h, the Makefile and
+scripts in game/), tools/, tests/, docs/, manual/ and the top-level documents.
+
+It does not cover, and gives no rights to:
+
+  - the files of the Amiga game in amiga-original/, the graphics decoded from them
+    in amiga-graphics/, and everything generated from them: game/source_assets/ and the
+    generated headers in game/ (flight_data.h, flash_data.h, fpv_data.h,
+    snd_data.h, pitch_table.h). Wings of Fury is copyright 1987, 1990
+    Broderbund Software, Inc.
+  - the disassembly, decompilation and binary image of the Amiga program in
+    reverse-engineering/ (the notes in reverse-engineering/notes/ are covered).
+  - agt-patch/, a diff against AGT (Atari Game Tools) by dml, which is under
+    AGT's own terms.

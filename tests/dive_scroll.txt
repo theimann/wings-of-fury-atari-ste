@@ -1,0 +1,13 @@
+# camera-follow dive without the 1/8 view: climb to ~150 (camera follows above 131), dive back down
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+55 UL
+SNAP 01_top
+12 LD
+SNAP 02_dive
+4 L
+SNAP 03_later
+END

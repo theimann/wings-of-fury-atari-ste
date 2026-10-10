@@ -1,0 +1,10 @@
+# carrier flag/radar animation on the deck
+3 -
+SNAP 01
+1 -
+SNAP 02
+1 -
+SNAP 03
+1 -
+SNAP 04
+END

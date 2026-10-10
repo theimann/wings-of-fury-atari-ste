@@ -1,0 +1,15 @@
+# map a, on the deck: a carrier bomber (replay BOMBER) comes in at 6144 px, goes down to altitude 20 before the
+# carrier, drops its torpedo (it runs into the hull: one of the carrier's 4 hits) and escapes
+4 -
+1 T
+WAITDECK
+BOMBER
+300 -
+SNAP 01_waiting
+300 -
+SNAP 02_approach
+200 -
+SNAP 03_later
+200 -
+SNAP 04_after
+END

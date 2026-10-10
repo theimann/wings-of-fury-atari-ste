@@ -1,0 +1,44 @@
+# rocket flight, a snapshot per tick (compare with tools/vamiga/shots/rocket)
+4 -
+1 U
+3 -
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+20 L
+1 LT
+1 L
+SNAP r00
+1 L
+SNAP r01
+1 L
+SNAP r02
+1 L
+SNAP r03
+1 L
+SNAP r04
+1 L
+SNAP r05
+1 L
+SNAP r06
+1 L
+SNAP r07
+1 L
+SNAP r08
+1 L
+SNAP r09
+1 L
+SNAP r10
+1 L
+SNAP r11
+1 L
+SNAP r12
+1 L
+SNAP r13
+1 L
+SNAP r14
+1 L
+SNAP r15
+END

@@ -1,0 +1,34 @@
+# front end pages: rank select (stick down twice -> LT. JUNIOR GRADE = map g), fire -> loading, briefing, game;
+# game over without a score -> high score table -> rank select; game over with a score -> name entry
+4 -
+NEWGAME
+6 -
+SNAP 01_rank_select
+1 D
+6 -
+1 D
+6 -
+SNAP 02_third_rank
+2 T
+12 -
+SNAP 03_briefing
+90 -
+4 -
+SNAP 04_game
+OVER 0
+6 -
+SNAP 05_scores
+2 T
+6 -
+SNAP 06_rank_again
+2 T
+14 -
+2 T
+6 -
+OVER 1
+6 -
+SNAP 07_name_entry
+2 T
+6 -
+SNAP 08_scores_with_entry
+END

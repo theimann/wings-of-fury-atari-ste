@@ -1,0 +1,15 @@
+# take-off roll with the torpedo: once the tail is up the torpedo is drawn behind the gear (order: torpedo, gear,
+# plane, as draw_player_plane)
+4 -
+1 D
+3 -
+1 T
+WAITDECK
+1 -
+60 L
+SNAP 01_roll
+15 L
+SNAP 02_tail_up
+10 L
+SNAP 03_tail_up
+END

@@ -1,0 +1,12 @@
+# map c, the last mission of the first rank: all islands cleared (replay CLEAR) -> promotion: the "Congratulations"
+# message scrolls through the strip and balloons rise from the carrier (victory ceremony FUN_1557c)
+MAP c
+4 -
+1 T
+WAITDECK
+CLEAR
+70 -
+SNAP 01_balloons
+70 -
+SNAP 02_balloons
+END

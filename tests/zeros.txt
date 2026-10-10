@@ -1,0 +1,24 @@
+# map d (replay MAP): the airfield at x 3200..3544 launches Zeros (2 parked, 1 airborne at a time) when the player is
+# within 480 px. A Zero rolls, lifts off and chases / attacks the player; the gun shoots at what is in front.
+MAP d
+4 -
+1 T
+WAITDECK
+1 -
+100 L
+34 UL
+6 L
+GOTO 4300
+4 L
+SNAP 01_airfield
+40 L
+SNAP 02_rolling
+40 L
+SNAP 03_airborne
+30 LH
+SNAP 04_firing
+60 LH
+SNAP 05_later
+60 L
+SNAP 06_later2
+END

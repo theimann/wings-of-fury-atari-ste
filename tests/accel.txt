@@ -1,0 +1,16 @@
+# speed check: take off, cruise with the stick released (airspeed falls to 1000), then hold the stick in the flying
+# direction (airspeed rises to 1400), then release again. Read x / spd / cam per tick from the log.
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+80 -
+SNAP 01_cruise
+100 L
+SNAP 02_fast
+80 -
+SNAP 03_cruise_again
+END

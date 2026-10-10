@@ -1,0 +1,8 @@
+# roll along the deck (PS_DECK) for the STE black-flash hunt
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+10 -
+90 L
+END

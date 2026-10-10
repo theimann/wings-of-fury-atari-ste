@@ -1,0 +1,16 @@
+# map a: the own carrier is sunk (replay KILLCARRIER = the 4th torpedo hit; it goes down one tile row every 16
+# stages). The plane waits on the deck: at stage 33 it
+# goes down with the carrier (game over after 100 ticks: the mission restarts with the carrier back)
+4 -
+1 T
+WAITDECK
+KILLCARRIER
+200 -
+SNAP 01_sinking
+45 -
+SNAP 01b_two_rows
+30 -
+SNAP 01c_four_rows
+225 -
+SNAP 02_after
+END

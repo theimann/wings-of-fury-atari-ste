@@ -1,0 +1,3 @@
+# deck: 8 bob steps for a video check of the bob update (black-frame flicker on the STE)
+170 -
+END

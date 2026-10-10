@@ -1,0 +1,30 @@
+# build outputs (regenerate with assets_com.sh / make)
+game/build*/
+game/cache/
+game/assets/
+game/disk1/
+game/disk200/
+game/disk_rel/
+game/.pack_cache/
+game/*.log
+# local scratch / backups
+*.bak
+*.bak_*
+*.orig
+__pycache__/
+.DS_Store
+game/hwtest/*.jpg
+# Ghidra project (large, regenerable from wings.bin + ghidra_scripts)
+reverse-engineering/ghidra_proj/
+reverse-engineering/*.log
+tools/hplay_out/
+game/version.h
+game/deploy_*.log
+game/.deploy_cache/
+local.env
+builds/
+.venv/
+game/hostinfo.txt
+unpacked/
+game/hwtest/
+game/disk1/README.TXT

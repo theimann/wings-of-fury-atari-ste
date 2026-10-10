@@ -1,0 +1,29 @@
+# full sortie end: take off, come back (GOTO = test aid for the turn), land on the wires with UP held, taxi onto the
+# elevator, stop, fire: the elevator takes the plane down, it is re-armed and the weapon menu returns
+# EXPECT states 1 0 1 7 1
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+30 L
+GOTO 7480
+14 U
+SNAP 01_approach
+46 U
+SNAP 02_arrested
+10 -
+35 L
+40 -
+SNAP 03_on_elevator
+1 T
+10 -
+SNAP 04_going_down
+30 -
+SNAP 05_menu_again
+1 T
+WAITDECK
+2 -
+SNAP 06_up_again
+END

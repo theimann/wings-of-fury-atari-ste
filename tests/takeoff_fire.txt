@@ -1,0 +1,21 @@
+# take off, climb, fire, nose-dive firing, restart
+# EXPECT states 1 0 1
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+10 -
+SNAP 01_deck
+100 L
+60 UL
+SNAP 02_climb
+20 UL
+SNAP 03_high
+10 LH
+SNAP 04_firing
+12 DH
+SNAP 05_dive_firing
+RESTART
+5 -
+SNAP 06_restart
+END

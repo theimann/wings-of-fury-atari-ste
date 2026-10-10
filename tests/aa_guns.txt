@@ -1,0 +1,18 @@
+# fly low over the bunker at x 3224 (manned): its AA gun aims and fires (gun/gnf frames), hits puff smoke at the
+# plane and cost oil (diag oil=). GOTO starts the pass just right of the bunker (test aid).
+# EXPECT states 1 0
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+GOTO 3500
+10 L
+SNAP 01_approach
+6 L
+SNAP 02_over
+6 L
+SNAP 03_past
+END

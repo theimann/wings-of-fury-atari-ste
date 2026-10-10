@@ -1,0 +1,18 @@
+# carrier operations: plane below deck with the weapon menu, fire -> elevator up (clipped at the deck edge),
+# fire again while stopped on the elevator -> elevator down, re-arm, menu again
+4 -
+SNAP 01_below_deck_menu
+1 T
+8 -
+SNAP 02_rising
+8 -
+SNAP 03_rising
+WAITDECK
+2 -
+SNAP 04_up
+1 T
+10 -
+SNAP 05_going_down
+40 -
+SNAP 06_menu_again
+END

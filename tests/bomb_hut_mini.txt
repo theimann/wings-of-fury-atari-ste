@@ -1,0 +1,38 @@
+# bomb the hut at x 2712 (8 bombs, 2 ticks apart), climb into the 1/8 view: the mini hut must be wrecked;
+# EXPECT states 1 0
+# a bomb dropped while zoomed is drawn with 8thscale frames
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+252 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+10 L
+SNAP 01_bombed
+50 UL
+SNAP 02_zoom
+1 LT
+6 L
+SNAP 03_zoom_bomb
+14 L
+SNAP 04_zoom_bomb_later
+END
+# EXPECT score 96

@@ -1,0 +1,22 @@
+# climb into the 1/8 view (altitude > 186), fly level, dive back to the normal view
+# EXPECT states 1 0 4
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+40 UL
+SNAP 01_climbing
+40 UL
+SNAP 02_zoom_climb
+25 L
+SNAP 03_zoom_level
+10 LD
+SNAP 04_zoom_dive
+30 LD
+SNAP 05_back_normal
+3 LD
+SNAP 06_later
+8 L
+SNAP 07_later2
+END

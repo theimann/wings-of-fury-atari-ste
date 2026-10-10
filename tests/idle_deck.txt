@@ -1,0 +1,6 @@
+# idle on the deck after R for ~6 minutes (HW froze after a few minutes)
+4 -
+RESTART
+4500 -
+SNAP 01_idle
+END

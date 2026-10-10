@@ -1,0 +1,12 @@
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+# EXPECT states 1 0
+30 UL
+4 L
+SNAP 01
+300 L
+SNAP 02
+END

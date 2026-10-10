@@ -1,0 +1,22 @@
+# weapon menu: DOWN selects rockets (1 -> 0), fire takes off; level flight at ~50 px, fire one rocket:
+# it drops away (ro frames), ignites and accelerates ahead of the plane (rc frames)
+# EXPECT states 1 0
+4 -
+SNAP 01_menu_bombs
+1 U
+3 -
+SNAP 02_menu_rockets
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+1 LT
+2 L
+SNAP 03_rocket_drop
+4 L
+SNAP 04_rocket_flying
+4 L
+SNAP 05_rocket_later
+END

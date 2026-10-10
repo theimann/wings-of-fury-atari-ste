@@ -1,0 +1,35 @@
+# take off and dive into the sea: sinking with splash explosions
+# EXPECT states 1 0 4 6
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+25 UL
+10 L
+20 LD
+SNAP 01
+3 -
+SNAP 02
+3 -
+SNAP 03
+3 -
+SNAP 04
+3 -
+SNAP 05
+3 -
+SNAP 06
+3 -
+SNAP 07
+3 -
+SNAP 08
+3 -
+SNAP 09
+3 -
+SNAP 10
+3 -
+SNAP 11
+3 -
+SNAP 12
+3 -
+END

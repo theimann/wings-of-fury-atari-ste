@@ -1,0 +1,15 @@
+# wave animation over open sea (left of the carrier)
+# EXPECT states 1 0
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+25 UL
+40 L
+SNAP 01
+1 L
+SNAP 02
+1 L
+SNAP 03
+END

@@ -1,0 +1,16 @@
+# the help page (replay HELP shows it without pausing) on the deck and in flight
+4 -
+HELP
+4 -
+SNAP 01_help_deck
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+10 L
+SNAP 02_help_flying
+HELP
+6 L
+SNAP 03_help_off
+END

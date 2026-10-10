@@ -1,0 +1,36 @@
+# start a mission, fly a bit, back to the rank select (as Ctrl+R), pick CAPTAIN (map m, the largest): the mission
+# must come up with its playfield (seen once on a real Mega STE: the panel but a black playfield)
+1 T
+WAITDECK
+10 -
+100 L
+60 UL
+40 L
+SNAP 01_flying
+NEWGAME
+8 -
+SNAP 02_rank_select
+1 D
+5 -
+1 D
+5 -
+1 D
+5 -
+1 D
+5 -
+1 D
+5 -
+1 D
+6 -
+SNAP 03_captain
+2 T
+14 -
+SNAP 04_briefing
+90 -
+6 -
+SNAP 05_mission
+1 T
+WAITDECK
+10 -
+SNAP 06_deck
+END

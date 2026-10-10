@@ -1,0 +1,56 @@
+# take off and dive into the sea close to the carrier (within 1280 px: the gear is still down): at the first contact
+# the plane sits on its gear, the gear goes up, and a tick later it drops and an orange explosion appears (as on the
+# Amiga, tools/vamiga/shots/chk_sea_crash1); then the spray. One snapshot per tick around the contact.
+# EXPECT states 1 0 4 6
+1 T
+WAITDECK
+1 -
+100 L
+14 UL
+9 LD
+SNAP 01
+1 LD
+SNAP 02
+1 LD
+SNAP 03
+1 LD
+SNAP 04
+1 LD
+SNAP 05
+1 LD
+SNAP 06
+1 LD
+SNAP 07
+1 LD
+SNAP 08
+1 LD
+SNAP 09
+1 LD
+SNAP 10
+1 LD
+SNAP 11
+1 LD
+SNAP 12
+1 LD
+SNAP 13
+1 LD
+SNAP 14
+1 LD
+SNAP 15
+1 LD
+SNAP 16
+1 LD
+SNAP 17
+1 LD
+SNAP 18
+1 LD
+SNAP 19
+1 LD
+SNAP 20
+1 LD
+SNAP 21
+1 LD
+SNAP 22
+1 LD
+40 -
+END

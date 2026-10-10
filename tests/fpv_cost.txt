@@ -1,0 +1,10 @@
+# timing aid: the forward view on the deck (VIEW 0 off, 3 all)
+4 -
+1 T
+WAITDECK
+VIEW 0
+100 -
+VIEW 3
+100 -
+SNAP 01_deck
+END

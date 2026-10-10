@@ -1,0 +1,893 @@
+diff --git a/agtsys/arena.h b/agtsys/arena.h
+index decf664..7afa40d 100644
+--- a/agtsys/arena.h
++++ b/agtsys/arena.h
+@@ -457,6 +457,22 @@ public:
+ 		//	b.fields[1].setmap(_map1);
+ 	}
+ 
++	// local patch: switch to another map after init() (setmap + remap of every field), then reset() the view
++	void remap(worldmap* _map0)
++	{
++		mapctx0_.setmap(_map0);
++		for (s16 b = 0; b < c_num_buffers_; ++b)
++		{
++			buffers_[b].fields[0].remap();
++			dirtymaskindex_[b][0] = buffers_[b].fields[0].dtm_animation_.dirtymasklines_;
++			if (c_dualfield_ && !c_singleframe_)
++			{
++				buffers_[b].fields[1].remap();
++				dirtymaskindex_[b][1] = buffers_[b].fields[1].dtm_animation_.dirtymasklines_;
++			}
++		}
++	}
++
+ 	void setoverlaymap(s32* _map0/*, s32* _map1*/)
+ 	{
+ 		mapctx0_.setoverlaymap(_map0);
+diff --git a/agtsys/compress.cpp b/agtsys/compress.cpp
+index 681caf3..9c403cf 100644
+--- a/agtsys/compress.cpp
++++ b/agtsys/compress.cpp
+@@ -137,6 +137,12 @@ static void decompressor
+ 	g_decompression_ticks += reg32(4BA) - time;
+ }
+ 
++// local patch: unpack already loaded wrapped data to a given place (worldmap::load_ccm packed body)
++void unwrap_data(u32 _wrapcode, u32 _packed_size, u8 *_packed, u32 _unpacked_size, u8 *_unpacked)
++{
++	decompressor(_wrapcode, _packed_size, _packed, _unpacked_size, _unpacked);
++}
++
+ // ---------------------------------------------------------------------------------------------------------------------
+ 
+ #if 0
+diff --git a/agtsys/compress.h b/agtsys/compress.h
+index 00e8f6c..1a7065b 100644
+--- a/agtsys/compress.h
++++ b/agtsys/compress.h
+@@ -109,6 +109,9 @@ typedef struct wrapheader_s
+ 
+ //----------------------------------------------------------------------------------------------------------------------
+ 
++// local patch: unpack loaded wrapped data in place
++void unwrap_data(u32 _wrapcode, u32 _packed_size, u8 *_packed, u32 _unpacked_size, u8 *_unpacked);
++
+ // low level decompression, direct access
+ //
+ // lz77
+diff --git a/agtsys/ealloc.cpp b/agtsys/ealloc.cpp
+index c9b34bb..35c667b 100644
+--- a/agtsys/ealloc.cpp
++++ b/agtsys/ealloc.cpp
+@@ -130,12 +130,36 @@ void operator delete[](void*, std::size_t)
+ 
+ // ---------------------------------------------------------------------------------------------------------------------
+ 
++// local patch: allocation zone. While a zone is set, ealloc() takes memory from it (bump allocation, marked with
++// size 0 so efree() ignores it); the owner resets the zone to free everything at once. Used for level data that is
++// replaced as a whole, so the GEMDOS heap does not fragment.
++static int s_zone_head = 0, s_zone_end = 0;
++
++void ealloc_zone(void* _base, int _size)
++{
++	s_zone_head = (int)_base;
++	s_zone_end = _base ? (int)_base + _size : 0;
++}
++
+ void* ealloc(int _s)
+ {
+ 	int v, va, as, *pva;
+ 
+ 	as = _s + ((4*2) + 4);
+ 
++	if (s_zone_head && as <= s_zone_end - s_zone_head)
++	{
++		v = s_zone_head;
++		s_zone_head += (as + 3) & ~3;
++		va = (v + ((4*2) + 4)) & ~3;
++		pva = (int*)va;
++		*(pva-1) = v;
++		*(pva-2) = 0;
++		return (void*)pva;
++	}
++	if (s_zone_head)
++		eprintf("warning: ealloc zone full (%d)\n", as);
++
+ #if defined(USE_TINY_CRT)
+ 	v = (int)Malloc(as);
+ #else
+@@ -237,6 +261,9 @@ void efree(void* _p)
+ 	// retrieve original size/type from block header
+ 	as = *(((int*)_p) - 2);
+ 
++	if (as == 0)
++		return;		// zone allocation (local patch): freed with the zone
++
+ 	if (as > 0)
+ 	{
+ 		// block to be freed was on the heap - dealloc properly
+diff --git a/agtsys/ealloc.h b/agtsys/ealloc.h
+index 99fab8f..f1888b5 100644
+--- a/agtsys/ealloc.h
++++ b/agtsys/ealloc.h
+@@ -15,6 +15,9 @@ void* ealloc(int _s);
+ 
+ // free space
+ void efree(void* _p);
++
++// local patch: route ealloc() into [_base, _base + _size) until called again (_base 0: off)
++void ealloc_zone(void* _base, int _size);
+ 
+ // allocate temporary space (can be flushed)
+ void* talloc(int _s);
+diff --git a/agtsys/libcxx/zerolibc.cpp b/agtsys/libcxx/zerolibc.cpp
+index 242a3f1..1d39d83 100644
+--- a/agtsys/libcxx/zerolibc.cpp
++++ b/agtsys/libcxx/zerolibc.cpp
+@@ -329,6 +329,109 @@ http://svn.opentom.org/opentom/trunk/linux-2.6/arch/m68knommu/lib/
+ 
+ // ----------------------------------------------------------------------------------------
+ 
++// ----------------------------------------------------------------------------------------
++//	File streams.
++//	FILE* points to a small record (handle, path, logical/physical position, size) instead of being
++//	the raw GEMDOS handle. Reason: some GEMDOS drive emulators (e.g. SidecarTridge md-devops GEMDRIVE
++//	v1.1.0) fail every Fseek() with EIHNDL (-37). If Fseek fails we emulate it: the size comes from
++//	Fsfirst() at open time, and repositioning reopens the file and/or skips forward on the next read.
++//	On normal drives Fseek works and nothing changes.
++// ----------------------------------------------------------------------------------------
++
++struct zl_file
++{
++	short handle;		// GEMDOS handle, -1 = slot free
++	short readonly;
++	long pos;			// physical position of the GEMDOS handle (as far as we know)
++	long vpos;			// logical position requested by the caller
++	long size;			// file size from Fsfirst at open time, -1 = unknown
++	const unsigned char *mem;	// [wof] file served from the memory bundle (0 = from disk)
++	char path[128];
++};
++
++// [wof] memory bundle: read-only files served from a block in RAM, so a set of files costs one disk read instead
++// of one open + read each (seconds per file from a floppy). The game loads the block and sets the pointer.
++// Layout: u16 count, then count x { char name[12] (upper case, NUL padded), u32 offset from the block start,
++// u32 size }, then the data.
++const unsigned char *g_zl_bundle = 0;
++
++static const unsigned char *zl_bundle_find(const char *_name, long *_size)
++{
++	if (!g_zl_bundle)
++		return 0;
++	const char *base = _name;
++	for (const char *q = _name; *q; q++)
++		if (*q == '\\' || *q == '/' || *q == ':') base = q + 1;
++	int n = (g_zl_bundle[0] << 8) | g_zl_bundle[1];
++	const unsigned char *e = g_zl_bundle + 2;
++	for (int i = 0; i < n; i++, e += 20)
++	{
++		int k = 0;
++		for (; k < 12; k++)
++		{
++			char a = base[k], b = (char)e[k];
++			if (a >= 'a' && a <= 'z') a -= 32;
++			if (a != b) break;
++			if (!a) { k = 12; break; }
++		}
++		if (k == 12 && (e[11] == 0 || base[12] == 0))
++		{
++			*_size = ((long)e[16] << 24) | ((long)e[17] << 16) | ((long)e[18] << 8) | e[19];
++			return g_zl_bundle + (((long)e[12] << 24) | ((long)e[13] << 16) | ((long)e[14] << 8) | e[15]);
++		}
++	}
++	return 0;
++}
++
++#define ZL_MAX_FILES 8
++static zl_file s_zl_files[ZL_MAX_FILES] = { { -1 }, { -1 }, { -1 }, { -1 }, { -1 }, { -1 }, { -1 }, { -1 } };
++
++static long zl_filesize(const char *_path)
++{
++	_DTA dta;
++	_DTA *old = (_DTA*)Fgetdta();
++	Fsetdta(&dta);
++	long r = Fsfirst(_path, 0x07);
++	Fsetdta(old);
++	return (r == 0) ? (long)dta.dta_size : -1;
++}
++
++// move the physical handle to the logical position before a transfer
++static int zl_sync(zl_file *_f)
++{
++	if (_f->vpos == _f->pos)
++		return 0;
++
++	if (_f->vpos < _f->pos)
++	{
++		// backwards: reopen (read-only streams only) and start from 0
++		if (!_f->readonly)
++			return -1;
++		Fclose(_f->handle);
++		short h = (short)Fopen(_f->path, S_READ);
++		if (h < 0)
++		{
++			_f->handle = -1;
++			return -1;
++		}
++		_f->handle = h;
++		_f->pos = 0;
++	}
++
++	// forwards: skip by reading
++	char skip[256];
++	while (_f->pos < _f->vpos)
++	{
++		long n = _f->vpos - _f->pos;
++		if (n > (long)sizeof(skip)) n = sizeof(skip);
++		long r = Fread(_f->handle, n, skip);
++		if (r <= 0)
++			return -1;
++		_f->pos += r;
++	}
++	return 0;
++}
++
+ FILE * fopen(const char * filename, const char * mode)
+ {
+ 	int h = 0;
+@@ -362,8 +465,27 @@ FILE * fopen(const char * filename, const char * mode)
+ 	else
+ 		smode = S_READ;
+ 
++	zl_file *f = nullptr;
++	for (int i = 0; i < ZL_MAX_FILES; i++)
++		if (s_zl_files[i].handle < 0) { f = &s_zl_files[i]; break; }
++	if (!f)
++		return (FILE*)NULL;
++
+ 	if (smode == S_READ)
+ 	{
++		// [wof] from the memory bundle?
++		long msize = 0;
++		const unsigned char *mem = zl_bundle_find(filename, &msize);
++		if (mem)
++		{
++			f->handle = 0x7fff;
++			f->readonly = 1;
++			f->pos = f->vpos = 0;
++			f->size = msize;
++			f->mem = mem;
++			f->path[0] = 0;
++			return (FILE*)f;
++		}
+ 		// file must exist
+ 		h = (int)(short)Fopen(filename, smode);
+ 	}
+@@ -382,68 +504,115 @@ FILE * fopen(const char * filename, const char * mode)
+ 		}
+ 	}
+ 
+-	if (h >= 0)
+-		return (FILE*)h;
+-
+-	return (FILE*)NULL;
++	if (h < 0)
++		return (FILE*)NULL;
++
++	f->handle = (short)h;
++	f->mem = 0;
++	f->readonly = (smode == S_READ);
++	f->pos = f->vpos = 0;
++	f->size = zl_filesize(filename);
++	int n = 0;
++	while (filename[n] && n < (int)sizeof(f->path) - 1) { f->path[n] = filename[n]; n++; }
++	f->path[n] = 0;
++	if (append && f->size > 0)
++		f->pos = f->vpos = f->size;
++
++	return (FILE*)f;
+ }
+ 
+ int fclose(FILE * stream)
+ {
+-	Fclose((short)(int)stream);
++	zl_file *f = (zl_file*)stream;
++	if (f && f->handle >= 0 && !f->mem)
++		Fclose(f->handle);
++	if (f)
++		f->handle = -1;
+ 	return 0;
+ }
+ 
+ size_t fread(void * ptr, size_t size, size_t count, FILE * stream)
+ {
+-	int r;
+-	// todo: long multiplier
+-	r = Fread((short)(int)stream, size*count, ptr);
++	zl_file *f = (zl_file*)stream;
++	if (f->mem)
++	{
++		long n = (long)size*(long)count;
++		if (n > f->size - f->vpos) n = f->size - f->vpos;
++		if (n <= 0)
++			return 0;
++		{ unsigned char *d = (unsigned char*)ptr; const unsigned char *q = f->mem + f->vpos; for (long i = 0; i < n; i++) d[i] = q[i]; }
++		f->vpos += n;
++		return n;
++	}
++	if (zl_sync(f) < 0)
++		return 0;
++	long r = Fread(f->handle, (long)size*(long)count, ptr);
+ 	if (r >= 0)
++	{
++		f->pos += r;
++		f->vpos = f->pos;
+ 		return r;
+-
++	}
+ 	return 0;
+ }
+ 
+ size_t fwrite(const void * ptr, size_t size, size_t count, FILE * stream)
+ {
+-	int w;
+-	// todo: long multiplier
+-	w = Fwrite((short)(int)stream, size*count, ptr);
++	zl_file *f = (zl_file*)stream;
++	if (zl_sync(f) < 0)
++		return 0;
++	long w = Fwrite(f->handle, (long)size*(long)count, ptr);
+ 	if (w >= 0)
++	{
++		f->pos += w;
++		f->vpos = f->pos;
++		if (f->size >= 0 && f->pos > f->size)
++			f->size = f->pos;
+ 		return w;
+-
++	}
+ 	return 0;
+ }
+ 
+ int fseek(FILE * stream, long int offset, int origin)
+ {
+-	int pos;
+-	pos = Fseek(offset, (short)(int)stream, (origin==SEEK_SET) ? 0 : (origin==SEEK_CUR) ? 1 : 2);
++	zl_file *f = (zl_file*)stream;
++	long pos = f->mem ? -1 : Fseek(offset, f->handle, (origin==SEEK_SET) ? 0 : (origin==SEEK_CUR) ? 1 : 2);
+ 
+ 	if (pos >= 0)
++	{
++		f->pos = f->vpos = pos;
+ 		return 0;
++	}
+ 
+-	return -1;
++	// Fseek unsupported by this drive: emulate (applied lazily by the next read/write)
++	long target;
++	if (origin == SEEK_SET)
++		target = offset;
++	else
++	if (origin == SEEK_CUR)
++		target = f->vpos + offset;
++	else
++	{
++		if (f->size < 0)
++			return -1;
++		target = f->size + offset;
++	}
++	if (target < 0)
++		return -1;
++	f->vpos = target;
++	return 0;
+ }
+ 
+ long int ftell(FILE * stream)
+ {
+-	int pos;
+-	pos = Fseek(0, (short)(int)stream, 1);
+-
+-	if (pos >= 0)
+-		return pos;
+-
+-	return -1;
++	zl_file *f = (zl_file*)stream;
++	return f->vpos;
+ }
+ 
+ int fgetc(FILE * stream)
+ {
+-	int r;
+-	char c = EOF;
+-	r = Fread((short)(int)stream, 1, &c);
+-	if (r > 0)
++	unsigned char c = 0;
++	if (fread(&c, 1, 1, stream) == 1)
+ 		return (int)c;
+ 
+ 	return EOF;
+diff --git a/agtsys/m68k/ste/disp200.s b/agtsys/m68k/ste/disp200.s
+index 838aa43..3c0e877 100644
+--- a/agtsys/m68k/ste/disp200.s
++++ b/agtsys/m68k/ste/disp200.s
+@@ -123,7 +123,7 @@ displayservice_ste200_vbi:
+ 	addq.l		#1,$462.w	
+ 	addq.l		#1,$466.w	
+ 
+-	.if		(use_overscan_timera)
++	.if		(timerc_alive)
+ 	.else
+ 	.if		^^defined AGT_CONFIG_PROFILER
+ 	.else
+diff --git a/agtsys/m68k/ste/disp272.s b/agtsys/m68k/ste/disp272.s
+index aea068a..2be4b74 100644
+--- a/agtsys/m68k/ste/disp272.s
++++ b/agtsys/m68k/ste/disp272.s
+@@ -117,7 +117,7 @@ displayservice_ste272_vbi:
+ 	addq.l		#1,$462.w	
+ 	addq.l		#1,$466.w	
+ 
+-	.if		(use_overscan_timera)
++	.if		(timerc_alive)
+ 	.else
+ 	.if		^^defined AGT_CONFIG_PROFILER
+ 	.else
+diff --git a/agtsys/m68k/ste/display.s b/agtsys/m68k/ste/display.s
+index e0b4916..6ac2f56 100644
+--- a/agtsys/m68k/ste/display.s
++++ b/agtsys/m68k/ste/display.s
+@@ -64,6 +64,11 @@ use_overscan			=	1		; enable 240 lines vs usual 200 (can be up to 274 but 240 is
+ use_lower_border		=	1		; enable/disable lower border specifically, when use_overscan = 1
+ use_overscan_timera		=	1		; use timera instead of timerd for upper border sync
+ 
++; [wof] TimerC (the 200 Hz system clock) is masked while the display service runs: its interrupt would delay
++; the TimerB events of a split screen. The VBL counts _hz_200 ($4ba) instead, 4 per frame.
++mask_timerc			=	1
++timerc_alive			=	use_overscan_timera&(1-mask_timerc)
++
+ ; internal timera/timerb schedule for overscan mode
+ displayservice_upper_delay	set	(94+4)		; safety padding of 6...3, but err towards more padding (smaller value) with blitter in use
+ timecritical_pad_tb		set	3-1		; TimerB padding (in scanlines)
+@@ -106,6 +111,21 @@ max_displayports	=	16
+ 	.endif
+ 	.endm
+ 
++; [wof] the 200 Hz system clock (_hz_200, $4ba), counted from the VBL: 4 per frame, as the other VBL routines do
++; ("simulate TimerC": TimerC is masked once the display service is installed). The disk-safe VBL routine did not,
++; so the clock stood still exactly while files were loaded, and disk drivers that time their waits with it hung
++; (HDDRIVER does, on every access).
++.macro	hz200_from_vbl
++	.if		(timerc_alive)
++	.else
++	.if		^^defined AGT_CONFIG_PROFILER
++	.else
++	addq.l		#4,$4ba.w
++	.endif
++	.endif
++.endm
++
++
+ ;.macro	blitoffx	labl
+ ;	.if		(use_blitter_compatibility)
+ ;
+@@ -236,7 +256,7 @@ _STE_InstallDisplayService:
+ *-------------------------------------------------------*
+ 	or.w		#$0700,sr
+ *-------------------------------------------------------*
+-	.if		(use_overscan_timera)
++	.if		(timerc_alive)
+ 	.else
+ 	.if		^^defined AGT_CONFIG_PROFILER
+ 	.else
+@@ -327,6 +347,10 @@ drte:  	rte
+ 
+ 
+ *-------------------------------------------------------*
++	.globl		_g_dmasafe_screen
++_g_dmasafe_screen:
++	dc.l		0
++	
+ displayservice_ste_vbi_dmasafe:
+ *-------------------------------------------------------*
+ 
+@@ -345,6 +369,21 @@ displayservice_ste_vbi_dmasafe:
+ 	
+ 	mulu.w		#29,d1
+ 	
++	; [wof] a game can name a plain 320x200 screen to show while files load (this handler has no screen
++	; split, so the playfield buffers would show with whatever lies below them)
++	move.l		_g_dmasafe_screen,d0
++	beq.s		.ownscr
++	move.b		d0,d1
++	lsr.w		#8,d0
++	move.l		d0,$ffff8200.w
++	move.b		d1,$ffff820d.w
++	clr.b		$ffff820f.w
++	clr.b		$ffff8265.w
++	move.l		d0,$ffff8204.w
++	move.b		d1,$ffff8209.w
++	clr.b		$ffff820f.w
++	bra.s		.scrset
++.ownscr:
+ 	move.l		(a0),d0
+ 	lsr.l		#8,d0
+ 	add.l		d1,d0
+@@ -362,6 +401,7 @@ displayservice_ste_vbi_dmasafe:
+ 	move.b		d1,$ffff8209.w
+ 
+ 	move.b		4(a0),$ffff820f.w
++.scrset:
+ 	
+ 	; load field palette
+ 	
+@@ -397,6 +437,7 @@ displayservice_ste_vbi_dmasafe:
+ 	
+ 	addq.l		#1,$462.w	
+ 	addq.l		#1,$466.w	
++	hz200_from_vbl
+ 
+ 	bliton
+ 	
+diff --git a/agtsys/m68k/ste/dispxs.s b/agtsys/m68k/ste/dispxs.s
+index 8ab3903..145d05f 100644
+--- a/agtsys/m68k/ste/dispxs.s
++++ b/agtsys/m68k/ste/dispxs.s
+@@ -39,6 +39,10 @@ displayservice_nickel_vbi:
+ 	tst.b		DMAFlag.w
+ 	bne		displayservice_ste_vbi_dmasafe
+ 	
++; [wof] AGT_CONFIG_NICKEL_NOTOP = a split screen on the standard 200-line display: the upper timer is not
++; started and Nickel lines count from the first line of the standard display.
++	.if		^^defined AGT_CONFIG_NICKEL_NOTOP
++	.else
+ 	.if		(use_overscan_timera)
+ 	
+ 	clr.b		tacr.w					; TimerA CTRL: halt
+@@ -60,6 +64,7 @@ displayservice_nickel_vbi:
+ 	move.l		#displayservice_common_upper_d,$110.w
+ 
+ 	.endif
++	.endif	; AGT_CONFIG_NICKEL_NOTOP
+ 
+ 
+ 	movem.l		d0-d7/a0-a6,-(sp)
+@@ -172,6 +177,7 @@ displayservice_nickel_vbi:
+ 	move.l		d0,a0
+ 	add.w		DPFieldIndex.w,a0
+ 	move.l		(a0),a0
++
+ 	
+ 	; load field palette
+ 	
+@@ -232,7 +238,7 @@ displayservice_nickel_vbi:
+ 	addq.l		#1,$462.w	
+ 	addq.l		#1,$466.w	
+ 
+-	.if		(use_overscan_timera)
++	.if		(timerc_alive)
+ 	.else
+ 	.if		^^defined AGT_CONFIG_PROFILER
+ 	.else
+@@ -595,6 +601,30 @@ displayservice_stexs:	;_first_b:
+ .fail:	add.w		DPFieldIndex.w,a0
+ 	move.l		(a0),a0
+ 	move.l		a0,DPNickelPort.w
++
++; [wof] AGT_CONFIG_NICKEL_NOTOP: the first port is shown from the first display line. No timer event can come that
++; early, so the VBL sets it (registers and order as in displayservice_ste200_vbi) and steps to the next port, as
++; the port event would. The event list must then start with a port at line 0.
++	.if		^^defined AGT_CONFIG_NICKEL_NOTOP
++	move.b		0(a0),$ffff8201.w
++	move.b		1(a0),$ffff8203.w
++	move.b		2(a0),$ffff820d.w
++	move.b		4(a0),$ffff820f.w
++	move.b		3(a0),$ffff8265.w
++	move.b		0(a0),$ffff8205.w
++	move.b		1(a0),$ffff8207.w
++	move.b		2(a0),$ffff8209.w
++	move.b		4(a0),$ffff820f.w
++	move.l		DPNickelPortPos.w,a0
++	move.l		(a0)+,d0
++	bne.s		.go2
++	move.l		s_a_displayports,a0
++	bra.s		.fail2
++.go2:	move.l		a0,DPNickelPortPos.w
++	move.l		d0,a0
++.fail2:	add.w		DPFieldIndex.w,a0
++	move.l		(a0),DPNickelPort.w
++	.endif
+ 	
+ ;	move.b		#displayservice_nickel_dlb_tb-timecritical_pad_tb,tbdr.w	; TimerB DATA: count
+ ;	move.b		#8,tbcr.w				; TimerB CTRL: start))
+diff --git a/agtsys/os.c b/agtsys/os.c
+index e90c3d4..77c961b 100644
+--- a/agtsys/os.c
++++ b/agtsys/os.c
+@@ -87,6 +87,9 @@ extern void etext();
+ 
+ // ---------------------------------------------------------------------------------------------------------------------
+ 
++short g_agt_start_rez = 0;
++unsigned short g_agt_start_pal[16];
++
+ // must be called only in supervisor mode, before user entrypoint
+ int AGT_EntryPointPre()
+ {
+@@ -94,6 +97,13 @@ int AGT_EntryPointPre()
+ 	nf_init();
+ #endif
+ 
++	// (wof) the resolution and palette we were started with, before the switch below: for the program's exit
++	g_agt_start_rez = *(volatile unsigned char *)0xffff8260L & 3;
++	{
++		int i;
++		for (i = 0; i < 16; i++) g_agt_start_pal[i] = ((volatile unsigned short *)0xffff8240L)[i];
++	}
++
+ 	// enter medium res/80-column mode for benefit of early init & loading TTY prints on native display
+ 	__asm volatile 
+ 	(
+diff --git a/agtsys/playfield.h b/agtsys/playfield.h
+index 035aef4..97029d9 100644
+--- a/agtsys/playfield.h
++++ b/agtsys/playfield.h
+@@ -134,7 +134,8 @@ public:
+ 		: oct_alloc_(nullptr),
+ 		  oct_(nullptr), 
+ 		  oco_(nullptr),
+-		  stride_(0)
++		  stride_(0),
++		  cap_words_(0)
+ 	{
+ 	}
+ 
+@@ -142,8 +143,11 @@ public:
+ 	{
+ 		delete[] oct_alloc_; oct_alloc_ = nullptr;
+ 		oct_ = oco_ = nullptr;
++		cap_words_ = 0;
+ 	}
+ 
++	s32 cap_words_;		// local patch: allocation reused by a later allocate() of the same or smaller size
++
+ 	void allocate(s16 _xt, s16 _yt, s16 _gxt, s16 _gyt)
+ 	{
+ 		// 1 word per 16 tiles, rounded up to 32 tiles (1 longword, 32 bits)
+@@ -161,7 +165,12 @@ public:
+ 
+ 		s32 size_words = stride_words * (_yt + (_gyt<<1));
+ 
+-		oct_alloc_ = new s16[size_words << 1];
++		if (size_words > cap_words_)
++		{
++			delete[] oct_alloc_;
++			oct_alloc_ = new s16[size_words << 1];
++			cap_words_ = size_words;
++		}
+ 		for (int w = 0; w < size_words; w++)
+ 			oct_alloc_[w] = -1;
+ 
+@@ -194,7 +203,9 @@ public:
+ 		: dirtymask_(nullptr),
+ 			dirtymasklines_(nullptr),
+ 			dirtymaskwidth_(0),
+-			dirtymaskstride_(0)
++			dirtymaskstride_(0),
++			cap_words_(0),
++			cap_lines_(0)
+ 	{
+ 	}
+ 
+@@ -202,8 +213,12 @@ public:
+ 	{
+ 		delete[] dirtymask_; dirtymask_ = nullptr;
+ 		delete[] dirtymasklines_; dirtymasklines_ = nullptr;
++		cap_words_ = 0; cap_lines_ = 0;
+ 	}
+ 
++	s32 cap_words_;		// local patch: allocations reused by a later allocate() of the same or smaller size
++	s16 cap_lines_;
++
+ 	void allocate(s16 _xt, s16 _yt)
+ 	{
+ 		// stride-rounding needs to match OCM system (32 tile bits) for integration step
+@@ -216,10 +231,20 @@ public:
+ 		// 1 word per 8 bits of mask (8 unused bits)
+ 		s32 size_words = dirtymaskwidth_ * _yt;
+ 
+-		dirtymask_ = new s16[size_words];
++		if (size_words > cap_words_)
++		{
++			delete[] dirtymask_;
++			dirtymask_ = new s16[size_words];
++			cap_words_ = size_words;
++		}
+ 		//qmemclr(dirtymask_, size_words << 1);
+ 
+-		dirtymasklines_ = new s16*[_yt];
++		if (_yt > cap_lines_)
++		{
++			delete[] dirtymasklines_;
++			dirtymasklines_ = new s16*[_yt];
++			cap_lines_ = _yt;
++		}
+ 		for (s16 n = 0; n < _yt; ++n)
+ 			dirtymasklines_[n] = &dirtymask_[n * dirtymaskwidth_];
+ 
+@@ -496,14 +521,22 @@ public:
+ 			delete[] modulo_map_x_; modulo_map_x_ = 0;
+ 			delete[] modulo_map_y_; modulo_map_y_ = 0;
+ 			delete[] mul_map_x_; mul_map_x_ = 0;
++			mul_cap_ = 0;
+ 		}
+ 
++		s16 mul_cap_;
++
+ 		void prepare()
+ 		{
+ 			srcywrap_ = (map_tiles_x_ * map_tiles_y_) << 2;	// todo: map element size		
+ 
+-			delete[] mul_map_x_; 
+-			mul_map_x_ = new mapmul_t[map_tiles_y_];
++			// local patch: reuse the tables when another map is set (avoids fragmenting the heap around the map)
++			if (map_tiles_y_ > mul_cap_)
++			{
++				delete[] mul_map_x_; 
++				mul_map_x_ = new mapmul_t[map_tiles_y_];
++				mul_cap_ = map_tiles_y_;
++			}
+ 			for (s16 n = 0; n < map_tiles_y_; ++n)
+ 				mul_map_x_[n] = n * map_tiles_x_;
+ 
+@@ -511,11 +544,8 @@ public:
+ 				//s16 xo = c_max_vt_ / map_tiles_x_;
+ 				//s16 yo = c_max_vt_ / map_tiles_y_;
+ 					
+-				delete[] modulo_map_x_; 
+-				delete[] modulo_map_y_; 
+-
+-				modulo_map_x_ = new s16[c_max_vt_<<1];
+-				modulo_map_y_ = new s16[c_max_vt_<<1];
++				if (!modulo_map_x_) modulo_map_x_ = new s16[c_max_vt_<<1];
++				if (!modulo_map_y_) modulo_map_y_ = new s16[c_max_vt_<<1];
+ 
+ 				for (s16 n = 0; n < c_max_vt_<<1; ++n)
+ 				{
+@@ -536,7 +566,8 @@ public:
+ 			  map_tiles_y_(0),
+ 			  srcywrap_(0),
+ 			  map_(nullptr),
+-			  mapoverlay_(nullptr)
++			  mapoverlay_(nullptr),
++			  mul_cap_(0)
+ 		{
+ 		}
+ 
+@@ -1876,6 +1907,30 @@ playfield_template()
+ 	//}
+ }
+ 
++// local patch: after the arena's setmap() with another map, take over its map pointers and re-size the per-map
++// dirty tile / occlusion state (init() does this too, but also re-allocates the display buffers)
++void remap()
++{
++	modulo_map_x_ = pmapcontext_->modulo_map_x_;
++	modulo_map_y_ = pmapcontext_->modulo_map_y_;
++	mul_map_x_ = pmapcontext_->mul_map_x_;
++	map_tiles_x_ = pmapcontext_->map_tiles_x_;
++	map_tiles_y_ = pmapcontext_->map_tiles_y_;
++	srcywrap_ = pmapcontext_->srcywrap_;
++	map_ = pmapcontext_->map_;
++	mapoverlay_ = pmapcontext_->mapoverlay_;
++	// (no release(): allocate() reuses the allocations when they are big enough)
++	if (c_dynamic_)
++		dtm_animation_.allocate(map_tiles_x_, map_tiles_y_);
++	if (c_tilerestore_)
++	{
++		dtm_bgrestore_.allocate(map_tiles_x_, map_tiles_y_);
++		static const s16 guard_tiles_x = c_guardx >> c_tilestep_;
++		static const s16 guard_tiles_y = c_guardy >> c_tilestep_;
++		ocm_.allocate(map_tiles_x_, map_tiles_y_, guard_tiles_x, guard_tiles_y);
++	}
++}
++
+ void init(s16 _buffer, s16 _field, s16 _display_width, s16 _display_height, s16 _x, s16 _y, s16 _displaymode)
+ {
+ 	buffer_ = _buffer;
+diff --git a/agtsys/shifter_ste.cpp b/agtsys/shifter_ste.cpp
+index ad303a1..13d2685 100644
+--- a/agtsys/shifter_ste.cpp
++++ b/agtsys/shifter_ste.cpp
+@@ -156,6 +156,10 @@ static inline void nickel_set_ringbuffer_pos(s16 codegen_wordindex)
+ extern "C" volatile s16 g_nickel_read_idx;
+ extern "C" s16 g_nickel_write_idx;
+ 
++// [wof] the colour words of the last compiled NE_ColourBurst (pairs: opcode, colour, colour), so a game can
++// change the burst's colours in place instead of recompiling the list
++u16 *g_nickel_last_burst = 0;
++
+ void shifter_ste::load_nickel(nickel_op_t *_pevents, int _timing_resilience)
+ {
+ 	s16 slot;
+@@ -273,6 +277,7 @@ void shifter_ste::load_nickel(nickel_op_t *_pevents, int _timing_resilience)
+ 					pdst[codegen_wordindex++] = 0x4e71;
+ 
+ 					// post-sync
++					g_nickel_last_burst = &pdst[codegen_wordindex];
+ 					int pairs = revent.count >> 1;
+ 					s16 v = 0;
+ 					for (int c = 0; c < pairs; c++)
+diff --git a/agtsys/tileset.h b/agtsys/tileset.h
+index 8536e6e..c89b45d 100644
+--- a/agtsys/tileset.h
++++ b/agtsys/tileset.h
+@@ -43,7 +43,7 @@ public:
+ 	// ---------------------------------------------------------------------------------------------------------------------
+ 	// internal stuff
+ 
+-private:
++public:		// (local patch: public, so the tiles can be freed before loading another level)
+ 
+ 	void purge();
+ 
+diff --git a/agtsys/worldmap.cpp b/agtsys/worldmap.cpp
+index 16ba1df..8f0906f 100644
+--- a/agtsys/worldmap.cpp
++++ b/agtsys/worldmap.cpp
+@@ -109,8 +109,28 @@ bool worldmap::load_ccm(const char* const _filename)
+ 
+ 			mapspace = allocate(MapFormat_PLAYFIELD);
+ 									
+-			// read main part of the file
+-			fread(map_, 1, mapspace * sizeof(s32), h);
++			// local patch: packed body. After the 8-byte ccm header the file may hold a wrapped (packed) asset
++			// with the map entries; it is unpacked straight into the map, so no second copy is needed
++			u32 first = 0;
++			fread(&first, 1, 4, h);
++			if (first == 'wrap')
++			{
++				wrapheader_t wh;
++				wh.prefix = first;
++				fread(&wh.wrapcode, 1, sizeof(wh) - 4, h);
++				u8 *temp_ptr = (u8*)talloc(wh.data_size + 2);
++				temp_ptr[wh.data_size] = 0;
++				temp_ptr[wh.data_size + 1] = 0;
++				fread(temp_ptr, 1, wh.data_size, h);
++				unwrap_data(wh.wrapcode, wh.data_size, temp_ptr, wh.unpacked_size, (u8*)map_);
++				efree(temp_ptr);
++			}
++			else
++			{
++				// read main part of the file
++				map_[0] = (s32)first;
++				fread(map_ + 1, 1, mapspace * sizeof(s32) - 4, h);
++			}
+ 			// done
+ 			fclose(h);
+ 
+@@ -321,6 +341,12 @@ s32 worldmap::allocate(MapFormat _format)
+ 			padrows_post_ += 2;
+ 		}
+ 
++#if defined(AGT_CONFIG_WORLDMAP_POSTPAD)
++		// local patch: the game never scrolls the view past the map's last row, so the full viewport copy below
++		// the map is not needed (saves (272+guardy)/16 rows of map entries)
++		if (hvsf_ & 2)
++			padrows_post_ = AGT_CONFIG_WORLDMAP_POSTPAD;
++#endif
+ 		// can't pad by more than the size of the map itself
+ 		padrows_post_ = xmin(padrows_post_, header_.height);
+ 
+diff --git a/agtsys/worldmap.h b/agtsys/worldmap.h
+index 1c133ed..abd9356 100644
+--- a/agtsys/worldmap.h
++++ b/agtsys/worldmap.h
+@@ -82,7 +82,7 @@ public:
+ 	// ---------------------------------------------------------------------------------------------------------------------
+ 	// internal stuff
+ 
+-private:
++public:		// (local patch: public, so a map can be freed before loading another one)
+ 
+ 	void purge()
+ 	{

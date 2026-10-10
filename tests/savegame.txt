@@ -1,0 +1,37 @@
+# saved game: bomb the hut at x 2712, save, load the map afresh (hut whole, score 0), load the save:
+# the wreck, the plane's position and the score are back
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+252 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+10 L
+SNAP 01_bombed
+QSAVE 1
+MAP a
+6 -
+SNAP 02_fresh_map
+QLOAD 1
+2 L
+SNAP 03_loaded
+6 L
+END
+# EXPECT score 96

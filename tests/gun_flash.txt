@@ -1,0 +1,18 @@
+# low flight firing the gun: muzzle flash (hellcat sheet frames, layer 1) drawn at the nose
+# EXPECT states 1 0
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+25 UL
+10 L
+2 LH
+SNAP 01
+1 LH
+SNAP 02
+1 LH
+SNAP 03
+1 LH
+SNAP 04
+END

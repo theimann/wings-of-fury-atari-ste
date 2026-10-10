@@ -1,0 +1,24 @@
+# map a: the own carrier is sunk (replay KILLCARRIER) after the take-off; at stage 120 (~330 ticks) it is gone (ship-less
+# tiles from the band, open sea in the wave strip, no flag / crew). EXPECT: still flying
+# EXPECT states 1 0
+4 -
+1 T
+WAITDECK
+1 -
+KILLCARRIER
+100 L
+30 UL
+GOTO 7300
+4 L
+SNAP 01_sinking
+150 L
+GOTO 7300
+4 L
+SNAP 02_still
+150 L
+GOTO 7300
+4 L
+SNAP 03_gone
+12 L
+SNAP 04_gone_later
+END

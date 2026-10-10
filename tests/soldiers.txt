@@ -1,0 +1,34 @@
+# bomb the hut at x 2712; 60 ticks later the 5 soldiers run out of the wreck. GOTO brings the plane back over
+# the hut (test aid) to see them in the normal view, then a strafing pass kills some (+25 each)
+# EXPECT states 1 0
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+252 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+70 L
+GOTO 2900
+6 L
+SNAP 01_soldiers
+5 L
+SNAP 02_soldiers
+END

@@ -1,0 +1,47 @@
+# as rank_restart, but the first mission is started from the rank select too (MIDSHIPMAN), bombs are dropped and
+# the plane is in the air when the rank select is called again
+4 -
+NEWGAME
+8 -
+2 T
+14 -
+2 T
+90 -
+6 -
+1 T
+WAITDECK
+10 -
+100 L
+60 UL
+30 L
+1 LT
+10 L
+1 LT
+20 L
+SNAP 01_flying
+NEWGAME
+8 -
+1 D
+5 -
+1 D
+5 -
+1 D
+5 -
+1 D
+5 -
+1 D
+5 -
+1 D
+6 -
+SNAP 02_captain
+2 T
+14 -
+2 T
+90 -
+6 -
+SNAP 03_mission
+1 T
+WAITDECK
+10 -
+SNAP 04_deck
+END

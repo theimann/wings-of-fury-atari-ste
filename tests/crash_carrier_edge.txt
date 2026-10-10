@@ -1,0 +1,23 @@
+# take off, jump back to the right of the carrier and dive at its stern edge: explosions along the deck, burning wreck
+# on the deck (or, hitting the ship's edge, thrown back into the sea)
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+25 UL
+10 L
+GOTO 7420
+14 LD
+SNAP 01
+4 -
+SNAP 02
+4 -
+SNAP 03
+6 -
+SNAP 04
+15 -
+SNAP 05
+25 -
+SNAP 06
+END

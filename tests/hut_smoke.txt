@@ -1,0 +1,34 @@
+# bomb the hut at x 2712, turn back (push right) and fly over it: smoke puffs (smk0-5) rise from the wreck
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+252 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+4 L
+SNAP 01_hit
+30 R
+SNAP 02_turn
+10 R
+SNAP 03_back
+8 R
+SNAP 04_over
+END

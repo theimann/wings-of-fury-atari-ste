@@ -1,0 +1,19 @@
+# oil needle = engine boost: high with the stick in the flying direction, lower with the stick released, and it stays
+# high while the stick is held against the flying direction (the turn), as on the Amiga (tools/vamiga/shots/oil)
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+20 L
+SNAP 01_left_held
+25 -
+SNAP 02_neutral
+20 L
+SNAP 03_left_again
+6 R
+SNAP 04_turning
+6 R
+SNAP 05_turning
+END

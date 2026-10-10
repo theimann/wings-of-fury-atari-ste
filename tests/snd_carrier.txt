@@ -1,0 +1,14 @@
+# sound check (no snapshots, they stall the mixer): take off, jump back over the carrier, dive firing the gun
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+30 L
+GOTO 7500
+8 LD
+20 LDH
+20 LH
+30 L
+END

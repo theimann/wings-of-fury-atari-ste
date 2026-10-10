@@ -1,0 +1,23 @@
+# the 1/8 view past the left end of the map: the island must scroll out to the right without jumping while the
+# plane is set back on the treadmill (clamp_world_x), then the view is open sea with the plane in the middle,
+# and the island comes back in when the plane turns round.
+# EXPECT states 1 0
+1 T
+WAITDECK
+1 -
+100 L
+40 UL
+40 UL
+25 L
+GOTO 600
+6 L
+SNAP 01_island_in_view
+36 L
+SNAP 02_island_leaving
+30 L
+SNAP 03_before_the_step
+24 L
+SNAP 04_after_the_step
+40 L
+SNAP 05_open_sea
+END
