@@ -16,16 +16,19 @@ What is still open. Things that are done are not listed.
   1164 KB with the files as they are, 1258 KB with the packed floppy files (the check adds 16 KB for larger level
   bundles: an estimate, only mission 1 was run at the limit). A plain 2 MB STE has 1547 KB there (TOS 2.06:
   1538 KB), a 1 MB one 499 KB.
-- **The floppy image on a real drive or Gotek** with 0.9.x or later (0.8.0 ran on an STE with a Gotek).
 - **New in 0.9.3**: ships and the own carrier sink 1 px per stage, with the ship's row showing at the waterline
   between the wave crests; pillbox damage in the 1/8 view; the Zero's muzzle flash in the colours of the Amiga's
   exclusive-or; Ctrl+S, F, C, V. Checked in Hatari only.
 
 ## Known issues
 
-- **Open sea beyond a map end: other distance rules** (P3): far out, the plane's map position is held near the
-  map's end. The gear and the forward view use the true position since this was found (`tests/carrier_far.txt`).
-  Not checked: whether guns, ships or enemy planes near that end still react to a plane that is truly far away.
+- **Enemy plane stays in the forward view** (P2, seen on a Mega STE): a carrier bomber torpedoed the carrier and
+  flew off; long after it was gone the forward view still showed a plane ahead, also with the own plane standing on
+  the deck. To look at: the plane list of the forward view (`fpv_draw`: planes within 6..160 cells ahead) against
+  planes that have left the map or were removed, and whether the view is recomposed when the last plane goes.
+
+- **Sinking own carrier: one pixel row of the flag mast stays behind** (P3, seen on a Mega STE): the flag, the crew
+  and the elevator platform go down with the ship now, but a 1 px piece of the mast stays where it was.
 
 ## Differences from the Amiga still open
 
