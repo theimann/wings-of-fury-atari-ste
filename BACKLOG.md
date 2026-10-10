@@ -23,27 +23,10 @@ What is still open. Things that are done are not listed.
 
 ## Known issues
 
-- **Sound clicks on real hardware**. Sporadic clicks while the DMA sound plays, on the STE and the
-  Mega STE about equally, not in Hatari. They occur over a silent buffer too, stop only with the DMA off, and the
-  plain-screen build without the split-screen code clicks as well. Most likely the known hardware behaviour (Shifter ground
-  bounce into the sound DAC latches, atari-forum t=41328); no software workaround is documented. Not tried: a
-  25 kHz DMA rate, cold against warm machine, other DMA-sound software on the same machines. A YM2149 fallback
-  would be the way out if it stays a problem.
-
 - **Flicker during take-off in Steem** (P2, reported): the game runs in Steem but "flickers some during takeoff",
   with a PAL and with an NTSC TOS 1.62. Not reproduced: Steem has not been run here (no macOS version), and Hatari
   and the real machines do not show it. That report was for a build before 1.0.0, whose display code was different; to be
   checked again with the current build. Low priority as long as it is Steem only.
-
-- **Freeze after Ctrl+Q** (P2, seen on a Mega STE with 1.0.0, started from the cartridge): after quitting with
-  Ctrl+Q the screen is white with some garbled letters and the machine hangs. Open: whether it is the display code of this build (the exit path may leave Timer B or the split-screen list
-  running), the cartridge's program runner, or the desktop's resolution; whether "Exit Game" in the load dialog does
-  the same. Not reproduced in Hatari: started from the desktop under HDDRIVER (TOS 2.06), from a subfolder and from the
-  floppy's AUTO folder (TOS 1.62), Ctrl+Q in a mission returns to a working desktop each time.
-
-- **Own carrier sinking: parts stay behind** (P3, seen on a Mega STE): the ship sinks as it should, but some
-  objects on it stay where they were, the flag mast for one, maybe others. To do: list what is drawn as sprites of
-  their own on the carrier (mast, flag, parked planes, guns) and move or hide them with the sinking stage.
 
 - **Black playfield after Ctrl+R** (P3, seen once on a Mega STE, started from the cartridge with unpacked files): a
   mission was played for a while, Ctrl+R went back to the rank selection, CAPTAIN was chosen; the screen was black
