@@ -1,0 +1,10 @@
+# map a: the own carrier is sunk (KILLCARRIER) while it stands at the top of its wave bob (43 ticks after the deck
+# is reached: bob 2, the picture 1 px higher). The mast's top row must go down with the ship: nothing stays in the sky.
+4 -
+1 T
+WAITDECK
+43 -
+KILLCARRIER
+260 -
+SNAP s01
+END

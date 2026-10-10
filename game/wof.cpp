@@ -2094,6 +2094,7 @@ static void ship_remove(s16 _k)
 #if !defined(WOF_SINK_STEPS)
 #define WOF_SINK_STEPS 0			// 1: always sink in steps of a tile row (to compare)
 #endif
+static s16 g_bob_row = BOB_ROWS;		// bob block: next row to update (BOB_ROWS = done)
 static bool bob_apply_step();
 struct sink_t
 {
@@ -2145,7 +2146,14 @@ static bool sink_begin(s16 _k)
 	if (s.tiles) return true;
 	if (WOF_SINK_STEPS || !g_world) return false;
 	if (_k == SINK_CARRIER ? g_carrier_sunk : g_ship[_k].sunk) return false;	// (it began in steps, e.g. in an older saved game)
-	if (_k == SINK_CARRIER) while (bob_apply_step()) { }				// (a bob step under way: all of its rows first)
+	if (_k == SINK_CARRIER)
+	{
+		while (bob_apply_step()) { }								// (a bob step under way: all of its rows first)
+		// The block that sinks is the carrier's at bob 3, as generated. At bob 2 the picture is 1 px higher and the
+		// mast's top row lies in the tile row above the block: it would stay in the sky. Sink from bob 3.
+		if (g_bob_drawn != 3) { g_bob_drawn = 3; g_bob_row = 0; while (bob_apply_step()) { } }
+		g_bob_flag = g_bob_drawn;
+	}
 	s16 bot = WAVE_DST_ROW - 1;
 	if (r[3] + r[4] - 1 < bot) bot = r[3] + r[4] - 1;
 	s16 rows = bot - r[3] + 1, cols = r[2];
@@ -3732,7 +3740,6 @@ static void bob_tick()
 // one band of BOB_ROWS_PER_FRAME tile rows per call (a whole-block copy in one frame made it ~2 VBLs longer and the
 // STE showed a black flash); returns true while rows remain
 #define BOB_ROWS_PER_FRAME 2
-static s16 g_bob_row = BOB_ROWS;		// next row to update (BOB_ROWS = done)
 static bool bob_apply_step()
 {
 	if (!g_world || g_bob_row >= BOB_ROWS || !g_carrier.alive) return false;
