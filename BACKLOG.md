@@ -22,6 +22,12 @@ What is still open. Things that are done are not listed.
 
 ## Known issues
 
+- **A chasing enemy plane does not attack** (P1, seen in Hatari on a Steam Deck with 1.0.0+f248896): a plane
+  that chases the player gets right behind it but does not fire; it turns round, then follows again, and repeats
+  that cycle. To look at: the chase and firing rules (`zero_chase`, the firing test with its distance and
+  direction conditions, the manoeuvre that makes it turn) against the original (FUN_1d796 and the routines around
+  it in `reverse-engineering/notes/enemies.md`), and whether it has always been so or came with a recent change.
+
 - **Garbled desktop after Ctrl+Q** (P2, seen on a Mega STE with 1.0.0+395b65c, booted from the floppy image on a
   Gotek): after Ctrl+Q the desktop comes back with a pink tint and a doubled picture (menu text and icons appear
   twice, shifted sideways); the mouse pointer still moves. An earlier report from the same machine, started from
