@@ -23,16 +23,6 @@ What is still open. Things that are done are not listed.
 
 ## Known issues
 
-- **Flicker during take-off in Steem** (P2, reported): the game runs in Steem but "flickers some during takeoff",
-  with a PAL and with an NTSC TOS 1.62. Not reproduced: Steem has not been run here (no macOS version), and Hatari
-  and the real machines do not show it. That report was for a build before 1.0.0, whose display code was different; to be
-  checked again with the current build. Low priority as long as it is Steem only.
-
-- **Black playfield after Ctrl+R** (P3, seen once on a Mega STE, started from the cartridge with unpacked files): a
-  mission was played for a while, Ctrl+R went back to the rank selection, CAPTAIN was chosen; the screen was black
-  for a moment, then the panel came up but the playfield stayed black. Not reproduced in Hatari with the same steps
-  (`tests/rank_restart.txt`, `rank_restart2.txt`). Seen with an earlier build; open whether the current one does it.
-
 - **Open sea beyond a map end: other distance rules** (P3): far out, the plane's map position is held near the
   map's end. The gear and the forward view use the true position since this was found (`tests/carrier_far.txt`).
   Not checked: whether guns, ships or enemy planes near that end still react to a plane that is truly far away.
