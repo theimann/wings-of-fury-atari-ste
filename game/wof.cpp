@@ -7375,7 +7375,7 @@ int AGT_EntryPoint()
 				{ s16 ns = 0; for (s16 i = 0; i < NSMOKE; i++) if (g_smoke[i].n) ns++; dbg_s(" smk="); dbg_h(ns); }
 				{ s16 n1 = 0, n2 = 0; for (s16 i = 0; i < NSOLD; i++) { if (g_sold[i].state == 1) n1++; if (g_sold[i].state == 3) n2++; } dbg_s(" sol="); dbg_h(n1); dbg_s(" dead="); dbg_h(n2); }
 				for (s16 i = 0; i < NZERO; i++)
-					if (g_zero[i].state) { dbg_s(" z"); dbg_h(g_zero[i].state); dbg_s("/"); dbg_h(g_zero[i].mode); dbg_s("/"); dbg_h(g_zero[i].x); dbg_s("/"); dbg_h(g_zero[i].alt); }
+					if (g_zero[i].state) { dbg_s(" z"); dbg_h(g_zero[i].state); dbg_s("/"); dbg_h(g_zero[i].mode); dbg_s("/"); dbg_h(g_zero[i].x); dbg_s("/"); dbg_h(g_zero[i].alt); dbg_s(" zr="); dbg_h(((u32)(u8)g_zero[i].rel << 24) | ((u32)(u8)g_zero[i].queue << 16) | ((u32)(u8)g_zero[i].mframe << 8) | (u8)g_zero[i].firing); dbg_s(" za="); dbg_h(((u32)(u16)g_zero[i].adx << 16) | (u16)g_zero[i].mdelay); dbg_s(" zs="); dbg_h(((u32)(u16)g_zero[i].speed << 16) | (u16)g_zero[i].tspeed); dbg_s(" zt="); dbg_h(((u32)(u16)g_zero[i].talt << 16) | (u16)g_zero[i].pursuit); }
 				{ static s32 s_dv = 0; s32 v = vbl_now(); dbg_s(" vbl="); dbg_h((u32)(v - s_dv)); s_dv = v; }	// VBLs since the previous line (4 frames)
 				dbg_s(" fpv="); dbg_h(((u32)g_fpv_stat[0] << 24) | ((u32)g_fpv_stat[1] << 16) | ((u32)g_fpv_stat[2] << 8) | g_fpv_stat[3]); g_fpv_stat[0] = g_fpv_stat[1] = g_fpv_stat[2] = g_fpv_stat[3] = 0;
 				dbg_s(" idle%="); dbg_h(g_idle_per_vbl ? (u32)(g_idle * 100 / g_idle_per_vbl) : 0); g_idle = 0;	// idle VBL-% over the 4 frames
