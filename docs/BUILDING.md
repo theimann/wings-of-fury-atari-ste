@@ -77,12 +77,19 @@ builds `builds/release-<version>+<commit>/` with three targets:
 
 | | |
 |---|---|
-| `floppy/wof.st` | a 720 KB disk image that boots into the game: data packed with ZX0, program packed with UPX |
-| `harddisk/WOF/` | `WOF.PRG`, `DATA/`, `SAVE/`, unpacked, and a zip of it |
+| `floppy/wof.st` | a 720 KB disk image that boots into the game: `AUTO/WOF.PRG` (packed with UPX), `WOF.DAT` (data packed with ZX0), `README.TXT` |
+| `harddisk/WOF/` | `WOF.PRG`, `WOF.DAT` (unpacked data), `README.TXT`, and a zip of it |
 | `hatari/` | a drive folder with `AUTO/WOF.PRG` and the files beside it |
 
 `README.TXT` (from `manual/README.TXT`, with the build's version line) is part of each. The first run packs all
 level files, which takes about half an hour; the results are cached in `game/.pack_cache/`.
+
+`WOF.DAT` (`tools/make_archive.py`) holds the game's files in one file, in a fixed order and without dates, so it
+stays byte for byte the same while the assets do not change; a normal build changes `WOF.PRG` only. The sums of
+both archives are kept in `tools/archive.sums`. A release whose archive differs from them stops; after a change of
+the assets run `tools/make_release.sh --new-data` and commit the file. The game checks the archive's length at
+every start and all of it with a Shift key held; a file that is not in the archive is read from a `DATA` folder
+beside it, or from the program's folder. The game makes its `SAVE` folder itself.
 
 The version is `VERSION` plus the git commit (`tools/version.sh`); it is compiled into the program and shown by
 Ctrl+V and on the pause page.

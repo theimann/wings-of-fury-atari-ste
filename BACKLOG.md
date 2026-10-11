@@ -20,6 +20,11 @@ What is still open. Things that are done are not listed.
   between the wave crests; pillbox damage in the 1/8 view; the Zero's muzzle flash in the colours of the Amiga's
   exclusive-or; Ctrl+S, F, C, V. Checked in Hatari only.
 
+- **Program and one data archive** (1.0.1): the hard disk version is `WOF.PRG`, `WOF.DAT`, `README.TXT`; the floppy
+  `AUTO/WOF.PRG`, `WOF.DAT`, `README.TXT`. To test: both start and load every mission; loading times against the
+  build before; the SAVE folder is made on the first start; a `WOF.DAT` that was cut short is reported; a Shift key
+  held at the start checks all of it. Checked in Hatari (floppy on TOS 1.62, a hard disk folder, HDDRIVER).
+
 ## Known issues
 
 - **A chasing enemy plane does not attack** (deferred, seen in Hatari with 1.0.0+f248896): a plane
@@ -40,27 +45,6 @@ What is still open. Things that are done are not listed.
   exit leaves in the STE's video registers on the real machine (horizontal scroll `$ff8265`, line width `$ff820f`,
   the palette, the resolution against the one TOS assumes), the order and the moment of those writes (in the
   vertical blank or not), and whether a timer of the display code can still fire after the vectors are restored.
-
-## Release layout
-
-- **Few files, one data archive** (P2): a build that is copied to a real machine should be the program, one
-  archive, the README and little else, and a normal build should change only the program. Today:
-  - Hard disk: 76 files (`WOF.PRG` 340 KB, `README.TXT`, 73 loose files in DATA with 5.3 MB, an empty SAVE folder).
-  - Floppy: 24 files (`AUTO/WOF.PRG` 164 KB, `README.TXT`, 22 files in DATA with 450 KB: `START.BIN`, 15 `LVL_x.BIN`,
-    `PACK.INF`, three pictures; an empty SAVE folder).
-  - Cartridge: the 76 loose files; `tools/cart_deploy.py` sends only the files that differ and lists them.
-  - The data files are the same from build to build in practice (1.0.0 and 1.0.1 differ in `WOF.PRG` and
-    `README.TXT` only), but nothing tests it, and the README carries the build's version line.
-  - The program does not check the data it finds (presence and length at start, a full sum on request).
-  - A build folder does not say which files differ from the build before.
-
-  Proposed: one `WOF.DAT` with a directory in front (name, offset, length per file, fixed order, no dates), read
-  through the file layer that serves the bundles today; a file not in the archive is looked for in DATA as now.
-  The program holds the archive's length and sum from the build and checks the length at every start, every byte
-  with a key held at start. SAVE is made by the program. `tools/make_release.sh` fails when the archive differs
-  from the one of the build before without being told so. Open: the hard disk archive unpacked (5.3 MB, loads as
-  fast as now) or the floppy's packed data for both (450 KB, one archive for every target, slower loading on
-  8 MHz).
 
 ## Differences from the Amiga still open
 
@@ -120,7 +104,7 @@ What is still open. Things that are done are not listed.
 
 **Builds** (`tools/make_release.sh` -> `builds/release-<id>/`): `hatari/` (unpacked, files beside the
 program), `floppy/wof.st` (packed, one 720 KB disk, program in
-AUTO, DATA and SAVE folders), `harddisk/WOF/` (unpacked, DATA and SAVE folders). README.TXT with the build's
+AUTO, the data in `WOF.DAT`), `harddisk/WOF/` (`WOF.PRG` and the unpacked data in `WOF.DAT`). README.TXT with the build's
 version line is in every target. Before publishing: run the floppy image on 2 MB, the files-beside-the-program
 layout from a subfolder, and the hard disk version under HDDRIVER (an ACSI disk image with the HDDRIVER demo).
 

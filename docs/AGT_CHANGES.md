@@ -108,6 +108,15 @@ memory (a count, then name, offset and size per entry, then the data), `fopen()`
 `fread()` copies from memory. The packed floppy version reads its small files as `START.BIN` and one `LVL_x.BIN`
 per map (`tools/pack_disk.py` builds them).
 
+### Files read from one archive on the disk
+`libcxx/zerolibc.cpp`: `g_zl_arch_dir`, `g_zl_arch_handle`, `g_zl_arch_pos`, `g_zl_arch_path`, `zl_archive_find()`.
+
+A release is the program and one data file. The game opens the archive, reads its directory (the layout of the
+memory block above, offsets from the start of the file) and sets these. `fopen()` for reading then looks in the
+memory block, in the archive's directory, and on the disk, in this order. A file from the archive shares the
+archive's handle, which stays open: `fread()` seeks to the file's position when the handle is elsewhere and does
+not read past the file's end; `fseek()` and `ftell()` count from the file's start.
+
 ### Packed maps are unpacked in place
 `worldmap.cpp`: `load_ccm`; `compress.cpp`, `compress.h`: `unwrap_data()`.
 

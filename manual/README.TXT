@@ -31,8 +31,14 @@ Hard disk:
   and start WOF.PRG.
 
   WOF.PRG   the game
-  DATA      the game's files
+  WOF.DAT   the game's files
   SAVE      saved games, high scores
+            (made by the game)
+
+  The game reports a WOF.DAT that is
+  incomplete. With a Shift key held
+  while it starts, the whole file is
+  checked.
 
 A disk symbol at the top right shows
 that the game is loading.

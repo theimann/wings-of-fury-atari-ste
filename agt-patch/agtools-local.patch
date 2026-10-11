@@ -122,10 +122,21 @@ index 99fab8f..f1888b5 100644
  // allocate temporary space (can be flushed)
  void* talloc(int _s);
 diff --git a/agtsys/libcxx/zerolibc.cpp b/agtsys/libcxx/zerolibc.cpp
-index 242a3f1..1d39d83 100644
+index 242a3f1..0eb1097 100644
 --- a/agtsys/libcxx/zerolibc.cpp
 +++ b/agtsys/libcxx/zerolibc.cpp
-@@ -329,6 +329,109 @@ http://svn.opentom.org/opentom/trunk/linux-2.6/arch/m68knommu/lib/
+@@ -22,8 +22,8 @@
+ // ----------------------------------------------------------------------------------------
+ 
+ #pragma GCC diagnostic push
+-#pragma GCC diagnostic ignored "-Wunused-variable"
+-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
++#pragma GCC diagnostic ignored "-Wunused-variable"
++#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+ 
+ // ----------------------------------------------------------------------------------------
+ 
+@@ -329,6 +329,153 @@ http://svn.opentom.org/opentom/trunk/linux-2.6/arch/m68knommu/lib/
  
  // ----------------------------------------------------------------------------------------
  
@@ -146,6 +157,8 @@ index 242a3f1..1d39d83 100644
 +	long vpos;			// logical position requested by the caller
 +	long size;			// file size from Fsfirst at open time, -1 = unknown
 +	const unsigned char *mem;	// [wof] file served from the memory bundle (0 = from disk)
++	long base;			// [wof] a file inside the disk archive starts here (0 otherwise)
++	short arch;			// [wof] a file inside the disk archive: shares the archive's handle
 +	char path[128];
 +};
 +
@@ -155,15 +168,37 @@ index 242a3f1..1d39d83 100644
 +// u32 size }, then the data.
 +const unsigned char *g_zl_bundle = 0;
 +
++// [wof] disk archive: one file on the disk that holds read-only files, with a directory of the bundle's layout
++// (offsets from the start of the archive file). The game opens it, reads the directory and sets these; the handle
++// stays open and is shared by every file read from the archive.
++const unsigned char *g_zl_arch_dir = 0;
++short g_zl_arch_handle = -1;
++long g_zl_arch_pos = 0;				// position of the handle
++const char *g_zl_arch_path = 0;		// to reopen it where Fseek does not work
++
++static long zl_dir_find(const unsigned char *_dir, const char *_name, long *_size);
++
 +static const unsigned char *zl_bundle_find(const char *_name, long *_size)
 +{
 +	if (!g_zl_bundle)
 +		return 0;
++	long off = zl_dir_find(g_zl_bundle, _name, _size);
++	return off < 0 ? 0 : g_zl_bundle + off;
++}
++
++// offset and size of a file in the disk archive, -1: not there
++long zl_archive_find(const char *_name, long *_size)
++{
++	return g_zl_arch_dir ? zl_dir_find(g_zl_arch_dir, _name, _size) : -1;
++}
++
++static long zl_dir_find(const unsigned char *_dir, const char *_name, long *_size)
++{
 +	const char *base = _name;
 +	for (const char *q = _name; *q; q++)
 +		if (*q == '\\' || *q == '/' || *q == ':') base = q + 1;
-+	int n = (g_zl_bundle[0] << 8) | g_zl_bundle[1];
-+	const unsigned char *e = g_zl_bundle + 2;
++	int n = (_dir[0] << 8) | _dir[1];
++	const unsigned char *e = _dir + 2;
 +	for (int i = 0; i < n; i++, e += 20)
 +	{
 +		int k = 0;
@@ -177,10 +212,10 @@ index 242a3f1..1d39d83 100644
 +		if (k == 12 && (e[11] == 0 || base[12] == 0))
 +		{
 +			*_size = ((long)e[16] << 24) | ((long)e[17] << 16) | ((long)e[18] << 8) | e[19];
-+			return g_zl_bundle + (((long)e[12] << 24) | ((long)e[13] << 16) | ((long)e[14] << 8) | e[15]);
++			return ((long)e[12] << 24) | ((long)e[13] << 16) | ((long)e[14] << 8) | e[15];
 +		}
 +	}
-+	return 0;
++	return -1;
 +}
 +
 +#define ZL_MAX_FILES 8
@@ -201,6 +236,16 @@ index 242a3f1..1d39d83 100644
 +{
 +	if (_f->vpos == _f->pos)
 +		return 0;
++
++	if (_f->arch)
++	{
++		long p = Fseek(_f->vpos, _f->handle, 0);
++		if (p == _f->vpos)
++		{
++			_f->pos = p;
++			return 0;
++		}
++	}
 +
 +	if (_f->vpos < _f->pos)
 +	{
@@ -232,10 +277,20 @@ index 242a3f1..1d39d83 100644
 +	return 0;
 +}
 +
++// [wof] a file inside the disk archive: the handle and its position belong to the archive
++static inline void zl_arch_in(zl_file *_f)
++{
++	if (_f->arch) { _f->handle = g_zl_arch_handle; _f->pos = g_zl_arch_pos; }
++}
++static inline void zl_arch_out(zl_file *_f)
++{
++	if (_f->arch) { g_zl_arch_handle = _f->handle; g_zl_arch_pos = _f->pos; }
++}
++
  FILE * fopen(const char * filename, const char * mode)
  {
  	int h = 0;
-@@ -362,8 +465,27 @@ FILE * fopen(const char * filename, const char * mode)
+@@ -362,8 +509,47 @@ FILE * fopen(const char * filename, const char * mode)
  	else
  		smode = S_READ;
  
@@ -257,13 +312,33 @@ index 242a3f1..1d39d83 100644
 +			f->pos = f->vpos = 0;
 +			f->size = msize;
 +			f->mem = mem;
++			f->base = 0;
++			f->arch = 0;
 +			f->path[0] = 0;
++			return (FILE*)f;
++		}
++		// [wof] from the disk archive?
++		long aoff = zl_archive_find(filename, &msize);
++		if (aoff >= 0 && g_zl_arch_handle >= 0)
++		{
++			f->handle = g_zl_arch_handle;
++			f->readonly = 1;
++			f->pos = g_zl_arch_pos;
++			f->vpos = aoff;
++			f->size = msize;
++			f->mem = 0;
++			f->base = aoff;
++			f->arch = 1;
++			int n = 0;
++			if (g_zl_arch_path)
++				while (g_zl_arch_path[n] && n < (int)sizeof(f->path) - 1) { f->path[n] = g_zl_arch_path[n]; n++; }
++			f->path[n] = 0;
 +			return (FILE*)f;
 +		}
  		// file must exist
  		h = (int)(short)Fopen(filename, smode);
  	}
-@@ -382,68 +504,115 @@ FILE * fopen(const char * filename, const char * mode)
+@@ -382,68 +568,132 @@ FILE * fopen(const char * filename, const char * mode)
  		}
  	}
  
@@ -276,6 +351,8 @@ index 242a3f1..1d39d83 100644
 +
 +	f->handle = (short)h;
 +	f->mem = 0;
++	f->base = 0;
++	f->arch = 0;
 +	f->readonly = (smode == S_READ);
 +	f->pos = f->vpos = 0;
 +	f->size = zl_filesize(filename);
@@ -292,7 +369,7 @@ index 242a3f1..1d39d83 100644
  {
 -	Fclose((short)(int)stream);
 +	zl_file *f = (zl_file*)stream;
-+	if (f && f->handle >= 0 && !f->mem)
++	if (f && f->handle >= 0 && !f->mem && !f->arch)
 +		Fclose(f->handle);
 +	if (f)
 +		f->handle = -1;
@@ -315,16 +392,29 @@ index 242a3f1..1d39d83 100644
 +		f->vpos += n;
 +		return n;
 +	}
++	long want = (long)size*(long)count;
++	if (f->arch)
++	{
++		if (want > f->base + f->size - f->vpos) want = f->base + f->size - f->vpos;
++		if (want <= 0)
++			return 0;
++		zl_arch_in(f);
++	}
 +	if (zl_sync(f) < 0)
++	{
++		zl_arch_out(f);
 +		return 0;
-+	long r = Fread(f->handle, (long)size*(long)count, ptr);
++	}
++	long r = Fread(f->handle, want, ptr);
  	if (r >= 0)
 +	{
 +		f->pos += r;
 +		f->vpos = f->pos;
++		zl_arch_out(f);
  		return r;
 -
 +	}
++	zl_arch_out(f);
  	return 0;
  }
  
@@ -354,7 +444,7 @@ index 242a3f1..1d39d83 100644
 -	int pos;
 -	pos = Fseek(offset, (short)(int)stream, (origin==SEEK_SET) ? 0 : (origin==SEEK_CUR) ? 1 : 2);
 +	zl_file *f = (zl_file*)stream;
-+	long pos = f->mem ? -1 : Fseek(offset, f->handle, (origin==SEEK_SET) ? 0 : (origin==SEEK_CUR) ? 1 : 2);
++	long pos = (f->mem || f->arch) ? -1 : Fseek(offset, f->handle, (origin==SEEK_SET) ? 0 : (origin==SEEK_CUR) ? 1 : 2);
  
  	if (pos >= 0)
 +	{
@@ -378,6 +468,8 @@ index 242a3f1..1d39d83 100644
 +	}
 +	if (target < 0)
 +		return -1;
++	if (f->arch && origin != SEEK_CUR)
++		target += f->base;
 +	f->vpos = target;
 +	return 0;
  }
@@ -392,7 +484,7 @@ index 242a3f1..1d39d83 100644
 -
 -	return -1;
 +	zl_file *f = (zl_file*)stream;
-+	return f->vpos;
++	return f->vpos - f->base;
  }
  
  int fgetc(FILE * stream)

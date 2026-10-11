@@ -277,8 +277,18 @@ worldmap mymap;
 static u8 *g_level_zone = 0;
 static s32 g_level_zone_size = 0;
 
+// The data archive (WOF.DAT, tools/make_archive.py): the game's files in one file, read through AGT's file layer
+// (local patch in zerolibc). A file that is not in it is looked for on the disk as before.
+extern const unsigned char *g_zl_arch_dir;
+extern short g_zl_arch_handle;
+extern long g_zl_arch_pos;
+extern const char *g_zl_arch_path;
+extern "C" long zl_archive_find(const char *_name, long *_size);
+
 static s32 file_size(const char *_name)
 {
+	long size = 0;
+	if (zl_archive_find(_name, &size) >= 0) return (s32)size;
 	_DTA *d = (_DTA *)Fgetdta();
 	if (Fsfirst(_name, 0) != 0) return 0;
 	return d->dta_size;
@@ -288,11 +298,11 @@ static s32 file_size(const char *_name)
 // size, unpacked size). _skip = 8 for a .ccm, whose 8-byte header stays unpacked. 0 = not packed
 static s32 unpacked_size(const char *_name, s32 _skip)
 {
-	s32 h = Fopen(_name, 0);
-	if (h < 0) return 0;
+	FILE *f = fopen(_name, "rb");
+	if (!f) return 0;
 	u32 buf[6] = { 0, 0, 0, 0, 0, 0 };
-	Fread((s16)h, _skip + 16, buf);							// (no Fseek: the SidecarTridge's GEMDRIVE fails every seek)
-	Fclose((s16)h);
+	fread(buf, 1, _skip + 16, f);							// (no seek: the SidecarTridge's GEMDRIVE fails every seek)
+	fclose(f);
 	const u32 *b = buf + (_skip >> 2);
 	return b[0] == 0x77726170UL ? (s32)b[3] : 0;
 }
@@ -306,12 +316,12 @@ static u32 g_pack_sizes[15][2];				// PACK.INF: unpacked sizes of level_a..o (.c
 static bool g_pack_sizes_ok = false;
 static void scratch_init()
 {
-	s32 h = Fopen("PACK.INF", 0);
-	if (h < 0) return;
+	FILE *f = fopen("PACK.INF", "rb");
+	if (!f) return;
 	u32 sz = 0;
-	Fread((s16)h, 4, &sz);
-	g_pack_sizes_ok = Fread((s16)h, sizeof(g_pack_sizes), g_pack_sizes) == (s32)sizeof(g_pack_sizes);
-	Fclose((s16)h);
+	fread(&sz, 1, 4, f);
+	g_pack_sizes_ok = fread(g_pack_sizes, 1, sizeof(g_pack_sizes), f) == sizeof(g_pack_sizes);
+	fclose(f);
 	if (sz <= 200000UL && (s32)sz + 64 > g_scratch_size) g_scratch_size = (s32)sz + 64;
 }
 static void scratch_begin()
@@ -351,9 +361,9 @@ static bool bundle_load(const char *_name)
 	g_bundle = (void *)Malloc(size);
 	if (below) Mfree(below);
 	if (!g_bundle) return false;
-	s32 h = Fopen(_name, 0);
-	bool ok = h >= 0 && Fread((s16)h, size, g_bundle) == size;
-	if (h >= 0) Fclose((s16)h);
+	FILE *f = fopen(_name, "rb");
+	bool ok = f && (s32)fread(g_bundle, 1, size, f) == size;
+	if (f) fclose(f);
 	if (!ok) { bundle_free(); return false; }
 	g_zl_bundle = (const unsigned char *)g_bundle;
 	return true;
@@ -4805,16 +4815,79 @@ COLD static u32 save_bytes()
 	for (s16 i = 0; i < SAVE_NBLOCKS; i++) n += c_save_blocks[i].n;
 	return n;
 }
-// Folders (hard disk layout): with a DATA folder beside the program the game's files are read from there and what
-// it writes (saved games, high scores) goes to a SAVE folder, made on the first start. Without DATA (floppy,
-// cartridge, emulator folder) everything is in the program's folder.
+// Folders: with the data archive WOF.DAT or a DATA folder beside the program (hard disk, floppy) what the game
+// writes (saved games, high scores) goes to a SAVE folder, made on the first start. Files that are not in the
+// archive are read from DATA when it is there. With neither (the files beside the program: cartridge, emulator
+// folder) everything is in the program's folder.
 static char *str_cat(char *_d, const char *_s);
 static char g_root_dir[100] = "";			// the program's folder ("": not used)
 static char g_save_dir[112] = "";			// "" or the SAVE folder with a trailing backslash
+// the archive: 'WOFD', its length, the sum of its 32-bit words from offset 16 on, a format number, then the
+// directory (number of files; name, offset and size of each)
+#define ARCH_MAGIC 0x574f4644UL
+static char g_arch_path[112] = "";
+static s16 g_arch_state = 0;				// 0: no archive, 1: in use, -1: there but not usable
+static u32 g_arch_len = 0, g_arch_sum = 0;	// from its header
+static s32 g_arch_found = 0;				// its length on the disk
+COLD static bool fs_has(const char *_name, bool _dir)
+{
+	_DTA *d = (_DTA *)Fgetdta();
+	if (Fsfirst(_name, _dir ? 0x10 : 0) != 0) return false;
+	return _dir ? (d->dta_attribute & 0x10) != 0 : true;
+}
+COLD static void arch_open()
+{
+	_DTA *d = (_DTA *)Fgetdta();
+	if (Fsfirst(g_arch_path, 0) != 0) return;
+	g_arch_found = d->dta_size;
+	g_arch_state = -1;
+	s32 h = Fopen(g_arch_path, 0);
+	if (h < 0) return;
+	u32 hd[4] = { 0, 0, 0, 0 };
+	u16 count = 0;
+	bool ok = Fread((s16)h, 14, hd) == 14 && Fread((s16)h, 2, &count) == 2 && hd[0] == ARCH_MAGIC
+		&& (hd[3] >> 16) == 1 && count > 0 && count < 500;
+	g_arch_len = hd[1]; g_arch_sum = hd[2];
+	u8 *dir = ok ? (u8 *)Malloc(2 + 20L * count) : 0;
+	s32 n = 20L * count;
+	if (!dir || Fread((s16)h, n, dir + 2) != n || (u32)g_arch_found != g_arch_len)
+	{
+		if (dir) Mfree(dir);
+		Fclose((s16)h);
+		return;
+	}
+	dir[0] = (u8)(count >> 8); dir[1] = (u8)count;
+	g_zl_arch_path = g_arch_path;
+	g_zl_arch_handle = (s16)h;
+	g_zl_arch_pos = 16 + n;
+	g_zl_arch_dir = dir;
+	g_arch_state = 1;
+}
+// every byte of the archive against the sum in its header (asked for with a Shift key held at the start)
+COLD static bool arch_verify()
+{
+	const s32 chunk = 16384;
+	u32 *buf = (u32 *)Malloc(chunk);
+	s32 h = buf ? Fopen(g_arch_path, 0) : -1;
+	bool ok = h >= 0 && Fread((s16)h, 16, buf) == 16;
+	u32 sum = 0, left = g_arch_len - 16;
+	while (ok && left)
+	{
+		s32 n = left > (u32)chunk ? chunk : (s32)left;
+		ok = Fread((s16)h, n, buf) == n;
+		for (s32 i = 0; i < (n >> 2); i++) sum += buf[i];
+		left -= n;
+	}
+	if (h >= 0) Fclose((s16)h);
+	if (buf) Mfree(buf);
+	return ok && sum == g_arch_sum;
+}
 COLD static void dirs_init()
 {
 	_DTA *d = (_DTA *)Fgetdta();
-	if (Fsfirst("DATA", 0x10) != 0 || !(d->dta_attribute & 0x10))
+	if (fs_has("WOF.DAT", false)) { }
+	else if (fs_has("..\\WOF.DAT", false)) { if (Dsetpath("..") != 0) return; }	// (the floppy: the program is in AUTO)
+	else if (Fsfirst("DATA", 0x10) != 0 || !(d->dta_attribute & 0x10))
 	{
 		// not here: one folder up? The floppy has the program in AUTO and DATA beside it; started by hand from the
 		// desktop (a machine with a hard disk boots from that, the floppy's AUTO folder is not run) we are in AUTO.
@@ -4837,9 +4910,15 @@ COLD static void dirs_init()
 	Dcreate(g_save_dir);					// (fails when it exists)
 	*(void (**)())0x404L = old;
 	str_cat(e, "\\");
-	Dsetpath("DATA");
+	str_cat(str_cat(g_arch_path, g_root_dir), "\\WOF.DAT");
+	arch_open();
+	if (fs_has("DATA", true)) Dsetpath("DATA");
 }
-COLD static void dirs_exit() { if (g_root_dir[0]) Dsetpath(g_root_dir[2] ? g_root_dir : "\\"); }
+COLD static void dirs_exit()
+{
+	if (g_zl_arch_handle >= 0) { Fclose(g_zl_arch_handle); g_zl_arch_handle = -1; g_zl_arch_dir = 0; }
+	if (g_root_dir[0]) Dsetpath(g_root_dir[2] ? g_root_dir : "\\");
+}
 COLD static const char *save_path(const char *_name)
 {
 	static char fn[128];
@@ -6323,6 +6402,49 @@ int AGT_EntryPoint()
 		}
 #endif
 		dirs_init();
+		{
+			// The data archive: there in full? A copy that broke off shows here instead of in a crash later. With a
+			// Shift key held at the start every byte is summed against the value in its header.
+			const char *bad = 0;
+			bool full = g_arch_state == 1 && (Kbshift(-1) & 3);
+			if (g_arch_state < 0) bad = "\033E\r\n Wings of Fury STE\r\n\r\n WOF.DAT is incomplete or not\r\n this game's file.\r\n ";
+			if (full)
+			{
+#if !defined(WOF_REPLAY)
+				intro_icon(false);
+#endif
+				Cconws("\033E\r\n Wings of Fury STE\r\n\r\n Checking WOF.DAT...\r\n");
+				if (!arch_verify()) bad = "\r\n WOF.DAT is damaged: its content\r\n does not match its check sum.\r\n ";
+				else { Cconws("\r\n WOF.DAT is complete.\r\n\r\n Press space...\r\n"); Crawcin(); Cconws("\033E"); }
+#if !defined(WOF_REPLAY)
+				if (!bad) intro_icon(true);
+#endif
+			}
+			if (bad)
+			{
+				char m[64], *p = m;
+				s32 v[2] = { g_arch_found, (s32)g_arch_len };
+				for (s16 k = 0; k < 2; k++)
+				{
+					for (const char *t = k ? ", expected: " : "Length: "; *t; ) *p++ = *t++;
+					bool on = false;
+					for (s32 dv = 100000000L; dv; dv /= 10) if (v[k] >= dv || dv == 1 || on) { *p++ = (char)('0' + v[k] / dv % 10); on = true; }
+				}
+				*p = 0;
+#if !defined(WOF_REPLAY)
+				if (!full) intro_icon(false);
+#endif
+				Cconws(bad);
+				Cconws(m);
+				Cconws("\r\n\r\n Copy the file again.\r\n\r\n Press space...\r\n");
+				Crawcin();
+				dirs_exit();
+				machinestate.restore();
+				tos_screen_back();
+				wof_mouse_show();
+				return -1;
+			}
+		}
 		{
 			// Enough memory? Without the check a machine with too little sat on the black loading screen for ever
 			// (2 MB with much of it taken by resident programs) or fell over after the title picture (1 MB).
