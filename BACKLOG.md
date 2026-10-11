@@ -41,6 +41,27 @@ What is still open. Things that are done are not listed.
   the palette, the resolution against the one TOS assumes), the order and the moment of those writes (in the
   vertical blank or not), and whether a timer of the display code can still fire after the vectors are restored.
 
+## Release layout
+
+- **Few files, one data archive** (P2): a build that is copied to a real machine should be the program, one
+  archive, the README and little else, and a normal build should change only the program. Today:
+  - Hard disk: 76 files (`WOF.PRG` 340 KB, `README.TXT`, 73 loose files in DATA with 5.3 MB, an empty SAVE folder).
+  - Floppy: 24 files (`AUTO/WOF.PRG` 164 KB, `README.TXT`, 22 files in DATA with 450 KB: `START.BIN`, 15 `LVL_x.BIN`,
+    `PACK.INF`, three pictures; an empty SAVE folder).
+  - Cartridge: the 76 loose files; `tools/cart_deploy.py` sends only the files that differ and lists them.
+  - The data files are the same from build to build in practice (1.0.0 and 1.0.1 differ in `WOF.PRG` and
+    `README.TXT` only), but nothing tests it, and the README carries the build's version line.
+  - The program does not check the data it finds (presence and length at start, a full sum on request).
+  - A build folder does not say which files differ from the build before.
+
+  Proposed: one `WOF.DAT` with a directory in front (name, offset, length per file, fixed order, no dates), read
+  through the file layer that serves the bundles today; a file not in the archive is looked for in DATA as now.
+  The program holds the archive's length and sum from the build and checks the length at every start, every byte
+  with a key held at start. SAVE is made by the program. `tools/make_release.sh` fails when the archive differs
+  from the one of the build before without being told so. Open: the hard disk archive unpacked (5.3 MB, loads as
+  fast as now) or the floppy's packed data for both (450 KB, one archive for every target, slower loading on
+  8 MHz).
+
 ## Differences from the Amiga still open
 
 - **Enemy ships don't bob** on the waves. The original (measured in vAmiga, map g's ship): the whole
