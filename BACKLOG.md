@@ -27,6 +27,14 @@ What is still open. Things that are done are not listed.
 
 ## Known issues
 
+- **Sound mostly on the left channel** (P1, heard with 1.0.1+be122a5): the mixer keeps the Amiga's fixed sides,
+  voices 0 and 3 left, 1 and 2 right (`snd.h`). The own engine and gun are voice 0, the anti-aircraft gun, screech,
+  scream and grind voice 3: in normal flight only the left side plays. The right side has the enemy engine and
+  gun (1), explosions and splashes (2). Wanted: the same signal on both sides. To do: mix all four voices into one
+  signal and write it to both sides (or the DMA's mono mode, bit 7 of $FF8921, with half the ring buffer); the
+  volume scaling has to leave headroom for four voices instead of two. To check first: that the right side plays
+  at all (enemy engine, explosion) on the machine where it was heard.
+
 - **A chasing enemy plane does not attack** (deferred, seen in Hatari with 1.0.0+f248896): a plane
   that chases the player gets right behind it but does not fire; it turns round, then follows again, and repeats
   that cycle. Looked at so far: a Zero from an airfield (map d) behind a plane flying straight and level holds 131 px
