@@ -27,16 +27,6 @@ What is still open. Things that are done are not listed.
 
 ## Known issues
 
-- **A bomber attacks the own carrier in the first mission** (P1, seen with 1.0.1+be122a5, the player was not
-  idle): expected was that this happens only in later missions or to an idle player. What the code does
-  (`bomber_tick`, from the Amiga's FUN_1bc02, `reverse-engineering/notes/enemies.md`): in every mission a bomber
-  comes 1350 ticks after the start and 500 ticks after each torpedo drop, while the carrier floats and the player
-  is more than 6656 px from the map's middle. The timer has no mission condition. It stops only on ticks with the
-  fire button down, and a press puts it back to at least 750 ticks: flying, bombing runs without the gun and
-  turning all count as idle. To do: read FUN_1bc02 again for a mission or difficulty condition and for which input
-  bits `G_26c92 & 0x30` are (fire only, or stick too); then one run of mission 1 on the Amiga in vAmiga, flying
-  without firing, to see whether and when the bomber comes; compare the tick rate (1350 ticks in seconds) on both.
-
 - **Sound mostly on the left channel** (P1, heard with 1.0.1+be122a5): the mixer keeps the Amiga's fixed sides,
   voices 0 and 3 left, 1 and 2 right (`snd.h`). The own engine and gun are voice 0, the anti-aircraft gun, screech,
   scream and grind voice 3: in normal flight only the left side plays. The right side has the enemy engine and
