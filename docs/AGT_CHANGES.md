@@ -124,6 +124,19 @@ AGT can load packed ("wrapped") assets, but a map would be unpacked into a secon
 8-byte `.ccm` header the file may now hold a wrapped body; it is read into scratch memory and unpacked straight
 into the map. Maps pack about 50:1 with ZX0.
 
+## Start-up
+
+### The parent's return frame is kept
+
+The SidecarTridge's md-devops runner starts programs with Pexec from supervisor mode. GEMDOS keeps the runner's
+return frame on the supervisor stack just below the program's, and the cartridge's drive emulation uses that
+stack for every file call: at Pterm the program then returned into overwritten memory (a hang or bombs). The
+start-up code (`zeroboot.s`) copies 128 bytes from the parent's saved stack pointer (parent basepage `+$7C`)
+before the first system call and writes them back just before Pterm, only when that address is plausible (even,
+at least `$800`, below the program) and the saved status register has the supervisor bit. A program started from
+the desktop has a parent in user mode and is not affected. The start-up code also keeps the basepage address
+(`_crt_basepage`) for the command line.
+
 ## Not in the patch
 
 - `makedefs.mintgcc` names `/opt/cross-mint` as the compiler's place. The game's `Makefile` overrides this from

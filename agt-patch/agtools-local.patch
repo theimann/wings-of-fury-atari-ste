@@ -121,6 +121,75 @@ index 99fab8f..f1888b5 100644
  
  // allocate temporary space (can be flushed)
  void* talloc(int _s);
+diff --git a/agtsys/libcxx/rmac/zeroboot.s b/agtsys/libcxx/rmac/zeroboot.s
+index dbc848b..32bf54a 100644
+--- a/agtsys/libcxx/rmac/zeroboot.s
++++ b/agtsys/libcxx/rmac/zeroboot.s
+@@ -39,6 +39,31 @@ __crt_entrypoint:	.globl		__crt_entrypoint
+ _start:			.globl		_start
+ *-------------------------------------------------------*
+ 	move.l		4(sp),a5
++	move.l		a5,__crt_basepage		; (for the command line at +$80)
++*-------------------------------------------------------*
++*	Keep the parent's return frame (SidecarTridge runner)
++*-------------------------------------------------------*
++;	A parent that called Pexec in supervisor mode (the md-devops runner) has its return frame
++;	(parent basepage +$7C) on the supervisor stack just below ours, and file calls through its
++;	GEMDRIVE overwrite it. Copy it before the first system call and put it back before Pterm.
++;	Programs started from the desktop (parent in user mode) are not affected.
++	move.l		$24(a5),a0			; parent basepage
++	move.l		$7c(a0),a0			; its saved stack pointer
++	move.l		a0,d0
++	btst		#0,d0
++	bne.s		.noframe
++	cmp.l		#$800,d0
++	bcs.s		.noframe
++	cmp.l		a5,d0
++	bcc.s		.noframe
++	btst		#5,4(a0)			; saved SR: supervisor mode?
++	beq.s		.noframe
++	move.l		a0,frame_at
++	lea		frame_copy,a1
++	moveq		#32-1,d1
++.fcopy:	move.l		(a0)+,(a1)+
++	dbf		d1,.fcopy
++.noframe:
+ *-------------------------------------------------------*
+ *	command info
+ *-------------------------------------------------------*
+@@ -72,6 +97,14 @@ _start:			.globl		_start
+ *-------------------------------------------------------*
+ *	Begone
+ *-------------------------------------------------------*
++	move.l		frame_at,d0			; the parent's return frame back
++	beq.s		.nofback
++	move.l		d0,a1
++	lea		frame_copy,a0
++	moveq		#32-1,d1
++.fback:	move.l		(a0)+,(a1)+
++	dbf		d1,.fback
++.nofback:
+ 	clr.w		-(sp)				; Pterm0
+ 	trap		#1
+ 
+@@ -419,6 +452,17 @@ ___cxa_pure_virtual:
+ ; --------------------------------------------------------------
+ 	jmp	_exit
+ 
++; --------------------------------------------------------------
++	.data
++; --------------------------------------------------------------
++;	(not in the bss: that is cleared after the copy)
++__crt_basepage:	.globl		__crt_basepage
++	dc.l	0
++frame_at:
++	dc.l	0
++frame_copy:
++	dcb.l	32,0
++
+ ; --------------------------------------------------------------
+ 	.bss
+ ; --------------------------------------------------------------
 diff --git a/agtsys/libcxx/zerolibc.cpp b/agtsys/libcxx/zerolibc.cpp
 index 242a3f1..0eb1097 100644
 --- a/agtsys/libcxx/zerolibc.cpp
