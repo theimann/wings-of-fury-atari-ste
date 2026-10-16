@@ -155,6 +155,15 @@ play:
 	cp build_play/wof.prg $(PRODUCT_DISK1)/WOFPLAY.PRG
 .PHONY: play
 
+# scripted runs on the real machines (docs/BUILDING.md, "Scripted runs on real machines"): make runs ->
+# disk1/WOFRUN.PRG; the run log goes to RUNS/RUN<n>.LOG (REPLAY.LOG with a REPLAY.TXT); padded to an even length
+# (the SidecarTridge's GEMDRIVE loader gets the last byte of odd-sized files wrong)
+runs:
+	$(MAKE) BUILD_DIR=build_runs WOF_EXTRA_DEFS="-DWOF_DIAG -DWOF_REPLAY -DWOF_RUNLOG" build_runs/wof.prg
+	cp build_runs/wof.prg $(PRODUCT_DISK1)/WOFRUN.PRG
+	[ $$(( $$(wc -c < $(PRODUCT_DISK1)/WOFRUN.PRG) % 2 )) = 0 ] || printf '\0' >> $(PRODUCT_DISK1)/WOFRUN.PRG
+.PHONY: runs
+
 # Hatari variant of the diagnostic build (NatFeats output into Hatari's log): make hdiag -> disk1/WOFHDIAG.PRG
 hdiag:
 	$(MAKE) BUILD_DIR=build_hdiag USE_HATARI_NATFEATS=yes WOF_EXTRA_DEFS="-DWOF_DIAG -DWOF_HDIAG -DAGT_CONFIG_HATARI_DEBUG" build_hdiag/wof.prg
@@ -190,4 +199,4 @@ version.h: FORCE
 FORCE:
 .PHONY: FORCE
 
-$(BUILD_DIR)/wof.o build_psnd/wof.o build_snd/wof.o build_playsnd/wof.o build_play/wof.o build_hdiag/wof.o build_plain/wof.o build_playplain/wof.o: flight_data.h flash_data.h snd_data.h snd.h version.h
+$(BUILD_DIR)/wof.o build_psnd/wof.o build_snd/wof.o build_playsnd/wof.o build_play/wof.o build_runs/wof.o build_hdiag/wof.o build_plain/wof.o build_playplain/wof.o: flight_data.h flash_data.h snd_data.h snd.h version.h

@@ -1,0 +1,326 @@
+# run 4: crashes - crashes into sea, island and carrier, the own carrier sinking, promotion, front end pages
+# --- crash_sea
+MAP a
+4 -
+# take off and dive into the sea: sinking with splash explosions
+# EXPECT states 1 0 4 6
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+25 UL
+10 L
+20 LD
+SNAP 01
+3 -
+SNAP 02
+3 -
+SNAP 03
+3 -
+SNAP 04
+3 -
+SNAP 05
+3 -
+SNAP 06
+3 -
+SNAP 07
+3 -
+SNAP 08
+3 -
+SNAP 09
+3 -
+SNAP 10
+3 -
+SNAP 11
+3 -
+SNAP 12
+3 -
+# --- crash_sea_near
+MAP a
+4 -
+# take off and dive into the sea close to the carrier (within 1280 px: the gear is still down): at the first contact
+# the plane sits on its gear, the gear goes up, and a tick later it drops and an orange explosion appears (as on the
+# Amiga, tools/vamiga/shots/chk_sea_crash1); then the spray. One snapshot per tick around the contact.
+# EXPECT states 1 0 4 6
+1 T
+WAITDECK
+1 -
+100 L
+14 UL
+9 LD
+SNAP 01
+1 LD
+SNAP 02
+1 LD
+SNAP 03
+1 LD
+SNAP 04
+1 LD
+SNAP 05
+1 LD
+SNAP 06
+1 LD
+SNAP 07
+1 LD
+SNAP 08
+1 LD
+SNAP 09
+1 LD
+SNAP 10
+1 LD
+SNAP 11
+1 LD
+SNAP 12
+1 LD
+SNAP 13
+1 LD
+SNAP 14
+1 LD
+SNAP 15
+1 LD
+SNAP 16
+1 LD
+SNAP 17
+1 LD
+SNAP 18
+1 LD
+SNAP 19
+1 LD
+SNAP 20
+1 LD
+SNAP 21
+1 LD
+SNAP 22
+1 LD
+40 -
+# --- crash_island
+MAP a
+4 -
+# fly to the island and dive into it: burning wreck with explosions and smoke
+# EXPECT states 1 0 4 8
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+210 L
+12 LD
+SNAP 01
+8 -
+SNAP 02
+12 -
+SNAP 03
+25 -
+SNAP 04
+# --- crash_carrier
+MAP a
+4 -
+# take off, jump back to the right of the carrier and dive onto its deck: explosions along the deck, burning wreck
+# on the deck (or, hitting the ship's edge, thrown back into the sea)
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+25 UL
+10 L
+GOTO 7300
+14 LD
+SNAP 01
+4 -
+SNAP 02
+4 -
+SNAP 03
+6 -
+SNAP 04
+15 -
+SNAP 05
+25 -
+SNAP 06
+# --- crash_carrier_edge
+MAP a
+4 -
+# take off, jump back to the right of the carrier and dive at its stern edge: explosions along the deck, burning wreck
+# on the deck (or, hitting the ship's edge, thrown back into the sea)
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+25 UL
+10 L
+GOTO 7420
+14 LD
+SNAP 01
+4 -
+SNAP 02
+4 -
+SNAP 03
+6 -
+SNAP 04
+15 -
+SNAP 05
+25 -
+SNAP 06
+# --- carrier_sink_smooth
+MAP a
+4 -
+# map a: the own carrier is sunk (replay KILLCARRIER = the 4th torpedo hit; it goes down 1 px per stage, smoothly; one snapshot every 20 ticks
+# stages). The plane waits on the deck: at stage 33 it
+# goes down with the carrier (game over after 100 ticks: the mission restarts with the carrier back)
+4 -
+1 T
+WAITDECK
+KILLCARRIER
+200 -
+20 -
+SNAP c01
+20 -
+SNAP c02
+20 -
+SNAP c03
+20 -
+SNAP c04
+20 -
+SNAP c05
+20 -
+SNAP c06
+20 -
+SNAP c07
+20 -
+SNAP c08
+20 -
+SNAP c09
+20 -
+SNAP c10
+20 -
+SNAP c11
+20 -
+SNAP c12
+# --- carrier_gone
+MAP a
+4 -
+# map a: the own carrier is sunk (replay KILLCARRIER) after the take-off; at stage 120 (~330 ticks) it is gone (ship-less
+# tiles from the band, open sea in the wave strip, no flag / crew). EXPECT: still flying
+# EXPECT states 1 0
+4 -
+1 T
+WAITDECK
+1 -
+KILLCARRIER
+100 L
+30 UL
+GOTO 7300
+4 L
+SNAP 01_sinking
+150 L
+GOTO 7300
+4 L
+SNAP 02_still
+150 L
+GOTO 7300
+4 L
+SNAP 03_gone
+12 L
+SNAP 04_gone_later
+# --- ceremony
+# map c, the last mission of the first rank: all islands cleared (replay CLEAR) -> promotion: the "Congratulations"
+# message scrolls through the strip and balloons rise from the carrier (victory ceremony FUN_1557c)
+MAP c
+4 -
+1 T
+WAITDECK
+CLEAR
+70 -
+SNAP 01_balloons
+70 -
+SNAP 02_balloons
+# --- rank_restart2
+MAP a
+4 -
+# as rank_restart, but the first mission is started from the rank select too (MIDSHIPMAN), bombs are dropped and
+# the plane is in the air when the rank select is called again
+4 -
+NEWGAME
+8 -
+2 T
+14 -
+2 T
+90 -
+6 -
+1 T
+WAITDECK
+10 -
+100 L
+60 UL
+30 L
+1 LT
+10 L
+1 LT
+20 L
+SNAP 01_flying
+NEWGAME
+8 -
+1 D
+5 -
+1 D
+5 -
+1 D
+5 -
+1 D
+5 -
+1 D
+5 -
+1 D
+6 -
+SNAP 02_captain
+2 T
+14 -
+2 T
+90 -
+6 -
+SNAP 03_mission
+1 T
+WAITDECK
+10 -
+SNAP 04_deck
+# --- frontend
+MAP a
+4 -
+# front end pages: rank select (stick down twice -> LT. JUNIOR GRADE = map g), fire -> loading, briefing, game;
+# game over without a score -> high score table -> rank select; game over with a score -> name entry
+4 -
+NEWGAME
+6 -
+SNAP 01_rank_select
+1 D
+6 -
+1 D
+6 -
+SNAP 02_third_rank
+2 T
+12 -
+SNAP 03_briefing
+90 -
+4 -
+SNAP 04_game
+OVER 0
+6 -
+SNAP 05_scores
+2 T
+6 -
+SNAP 06_rank_again
+2 T
+14 -
+2 T
+6 -
+OVER 1
+6 -
+SNAP 07_name_entry
+2 T
+6 -
+SNAP 08_scores_with_entry
+END

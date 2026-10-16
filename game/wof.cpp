@@ -153,7 +153,44 @@ static bool map_load(s16 _letter)
 //	WOF_DIAG: diagnostics over the SidecarTridge md-devops debug channel (read of $FBFF00+c emits byte c;
 //	view with `sidecart.py debug tail`). Built only by `make diag`.
 
-#if defined(WOF_DIAG) && defined(WOF_HDIAG)
+#if defined(WOF_RUNLOG)
+// Scripted runs on the real machines (make runs -> disk1/WOFRUN.PRG, docs/BUILDING.md): the lines go into memory, each
+// with the frame (VBL since the start, hex) and the logic tick it was written at, and the whole log is written to
+// RUNS\RUNn.LOG at every map load and at the end. (Whole files, no appending: GEMDRIVE of the SidecarTridge cannot
+// seek, SIDECARTRIDGE.md G1.)
+#define RUNLOG_MAX (192L * 1024)
+static char s_log[RUNLOG_MAX];
+static s32 s_log_n = 0;
+static bool s_log_bol = true, s_log_full = false;
+static char s_log_name[24] = "REPLAY.LOG";
+static u32 g_run_vbl = 0, g_run_ticks = 0;
+static s16 s_run_last = 0;
+static u32 run_vbl() { s16 v = (s16)(-g_vbl); g_run_vbl += (u16)(v - s_run_last); s_run_last = v; return g_run_vbl; }
+static void log_put(char _c) { if (s_log_n < RUNLOG_MAX) s_log[s_log_n++] = _c; }
+static void log_hexn(u32 _v, s16 _digits) { for (s16 i = (_digits - 1) * 4; i >= 0; i -= 4) log_put("0123456789ABCDEF"[(_v >> i) & 15]); }
+static void dbg_c(char _c)
+{
+	if (s_log_full) return;
+	if (s_log_n > RUNLOG_MAX - 400 && s_log_bol)
+	{
+		const char *t = "LOG FULL\n"; while (*t) log_put(*t++);
+		s_log_full = true; return;
+	}
+	if (s_log_bol) { log_hexn(run_vbl(), 6); log_put(' '); log_hexn(g_run_ticks, 5); log_put(' '); s_log_bol = false; }
+	log_put(_c);
+	if (_c == '\n') s_log_bol = true;
+}
+static void log_write()
+{
+	if (!s_log_bol) dbg_c('\n');
+	s32 n = s_log_n;
+	if (n & 1) s_log[n++] = '\n';				// (even length: GEMDRIVE's odd-size fault, G2)
+	s16 h = (s16)Fcreate(s_log_name, 0);
+	if (h < 0) return;
+	Fwrite(h, n, s_log);
+	Fclose(h);
+}
+#elif defined(WOF_DIAG) && defined(WOF_HDIAG)
 // Hatari variant (make hdiag): lines go to Hatari's console via NatFeats
 static char s_dbg_line[320];
 static s16 s_dbg_len = 0;
@@ -539,6 +576,18 @@ static void page_close();
 // saved games (the dialog and the file code are further down)
 static s16 g_load_slot = -1;			// slot to restore once its map is loaded (the main loop's map switch)
 static bool g_quit = false;				// "Exit Game" in the save / load dialog
+// The SidecarTridge (md-devops runner) can end a running program from the Mac: POST /api/v1/runner/adv/meminfo puts
+// $603 at $FA2800 (SIDECARTRIDGE.md, "Remote quit"). Looked for only with that cartridge in, and not when the word
+// is still there from an earlier quit.
+static bool g_cart_quit = false;
+static void cart_detect()
+{
+	g_cart_quit = *(volatile u32 *)0xFA0000L == 0xABCDEF42L && *(volatile u32 *)0xFA0018L == 0x5445524DL
+		&& (*(volatile u32 *)0xFA0008L >> 24) == 0x08 && *(volatile u32 *)0xFA2800L != 0x603;
+}
+#if defined(WOF_RUNLOG)
+static s16 g_rs_frames = 0, g_rs_slow = 0, g_rs_maxf = 0;	// per second of the run log: frames, slower than the pacing, longest
+#endif
 static bool g_dlg_edit = false;			// save dialog: the slot name is being typed
 static bool save_write(s16 _slot, const char *_name);
 static s16 save_letter(s16 _slot);
@@ -4129,16 +4178,50 @@ static u8 read_input()
 // =====================================================================================================================
 
 #if defined(WOF_REPLAY)
+#if defined(WOF_RUNLOG)
+static char s_rp_buf[16384];
+#else
 static char s_rp_buf[8192];
+#endif
 static s16 s_rp_len = 0, s_rp_pos = 0;
 static s16 s_rp_left = 0;
 static u8 s_rp_in = 0;
 static bool g_rp_snap = false, g_rp_end = false, g_rp_restart = false;
 static char s_rp_name[40];
 
+#if defined(WOF_RUNLOG)
+extern "C" char *_crt_basepage;				// (AGT start-up: the command line at +$80)
+#endif
 static void replay_load()
 {
-	FILE *f = fopen("REPLAY.TXT", "rb");
+	const char *name = "REPLAY.TXT";
+#if defined(WOF_RUNLOG)
+	// the run: command line "RUN<n>" or "<n>" (md-devops: runner run WOFRUN.PRG RUN2) -> RUNS\RUN<n>.TXT; without one
+	// REPLAY.TXT if there is one (Hatari), else run 1
+	static char s_name[24];
+	s16 n = 0;
+	{
+		const u8 *cl = (const u8 *)_crt_basepage + 0x80;
+		s16 len = cl[0] > 126 ? 126 : cl[0];
+		for (s16 i = 1; i <= len; i++)
+			if (cl[i] >= '1' && cl[i] <= '9') { n = cl[i] - '0'; if (i + 1 <= len && cl[i + 1] >= '0' && cl[i + 1] <= '9') n = n * 10 + cl[i + 1] - '0'; break; }
+	}
+	if (!n) { FILE *t = fopen("REPLAY.TXT", "rb"); if (t) fclose(t); else n = 1; }
+	if (n)
+	{
+		char *p = s_name;
+		for (const char *t = "RUNS\\RUN"; *t; ) *p++ = *t++;
+		if (n >= 10) *p++ = (char)('0' + n / 10);
+		*p++ = (char)('0' + n % 10);
+		char *q = s_log_name;
+		for (char *t = s_name; t < p; ) *q++ = *t++;
+		for (const char *t = ".LOG"; (*q++ = *t++) != 0; ) { }
+		for (const char *t = ".TXT"; (*p++ = *t++) != 0; ) { }
+		name = s_name;
+	}
+	dbg_s("RUN "); dbg_s(name); dbg_s(" log "); dbg_s(s_log_name); dbg_s("\n");
+#endif
+	FILE *f = fopen(name, "rb");
 	if (f) { s_rp_len = (s16)fread(s_rp_buf, 1, sizeof(s_rp_buf) - 1, f); fclose(f); }
 	s_rp_buf[s_rp_len] = 0;
 	dbg_s("REPLAY loaded "); dbg_h(s_rp_len); dbg_s("\n");
@@ -4904,7 +4987,11 @@ COLD static void dirs_init()
 	g_root_dir[n++] = (char)('A' + Dgetdrv()); g_root_dir[n++] = ':';
 	for (s16 i = 0; path[i] && n < 90; i++) g_root_dir[n++] = path[i];
 	g_root_dir[n] = 0;
+#if defined(WOF_RUNLOG)
+	char *e = str_cat(str_cat(g_save_dir, g_root_dir), "\\RUNS");	// (a run's saves and high scores stay in RUNS)
+#else
 	char *e = str_cat(str_cat(g_save_dir, g_root_dir), "\\SAVE");
+#endif
 	void (*old)() = *(void (**)())0x404L;	// (a write-protected disk: no alert box, no folder; saving reports it later)
 	*(void (**)())0x404L = wof_critic;
 	Dcreate(g_save_dir);					// (fails when it exists)
@@ -6401,6 +6488,7 @@ int AGT_EntryPoint()
 			intro_icon(true);
 		}
 #endif
+		cart_detect();
 		dirs_init();
 		{
 			// The data archive: there in full? A copy that broke off shows here instead of in a crash later. With a
@@ -6803,6 +6891,13 @@ int AGT_EntryPoint()
 		// Esc pauses and Ctrl+R goes back to the rank selection, as in the original (which has no quit key: Ctrl+Q here)
 		while (!(key_states[ScanCode_CTRL] && key_states[ScanCode_Q]) && !g_quit)
 		{
+			if (g_cart_quit && *(volatile u32 *)0xFA2800L == 0x603)	// the cartridge's remote quit (cart_detect)
+			{
+#if defined(WOF_DIAG)
+				dbg_s("remote quit\n");
+#endif
+				break;
+			}
 			// frame pacing: at least g_frame_vbls VBLs per drawn frame (1 = as fast as possible, ~25 fps here;
 			// 3 = the Amiga's steady 16.7 fps with headroom for sound / more objects)
 			static s16 s_frame_vbl = 0;		// 16-bit like vbl_now(): differences survive the counter wrap (10.9 min)
@@ -6811,6 +6906,14 @@ int AGT_EntryPoint()
 				s16 field_index = g_vbl;
 				while (g_vbl == field_index) n++;
 				while ((s16)(vbl_now() - s_frame_vbl) < g_frame_vbls) n++;
+#if defined(WOF_RUNLOG)
+				{	// frames per second, frames that took longer than the pacing, the longest
+					s16 fl = (s16)(vbl_now() - s_frame_vbl);
+					g_rs_frames++;
+					if (fl > g_frame_vbls) g_rs_slow++;
+					if (fl > g_rs_maxf && fl < 1000) g_rs_maxf = fl;
+				}
+#endif
 				s_frame_vbl = vbl_now();
 #if defined(WOF_DIAG)
 				g_idle += n;				// idle loop count (CPU headroom)
@@ -6968,7 +7071,14 @@ int AGT_EntryPoint()
 				g_map_request = 0;
 				g_loading = 0;
 				if (g_night_roll) { g_night_roll = false; g_night = g_map_request_night(l); }	// FUN_111fc
+#if defined(WOF_RUNLOG)
+				dbg_s("LOAD map "); dbg_c((char)l); dbg_s("\n");
+				log_write();
+#endif
 				if (!mission_switch(myworld, l)) mission_switch(myworld, MAP_LETTERS[0]);
+#if defined(WOF_RUNLOG)
+				dbg_s("LOADED\n");
+#endif
 				bool loaded = false;
 				if (g_load_slot >= 0)							// a saved game: its state over the fresh map
 				{
@@ -7104,6 +7214,9 @@ int AGT_EntryPoint()
 				if (g_rp_snap || g_rp_end || g_rp_restart || !replay_input(in)) break;
 #endif
 				logic_tick(in);
+#if defined(WOF_RUNLOG)
+				g_run_ticks++;
+#endif
 				sound_tick();
 				if (P.state == PS_DECK && old_state != PS_DECK && old_state != PS_FLYING && old_state != PS_ARRESTED)
 				{
@@ -7466,6 +7579,9 @@ int AGT_EntryPoint()
 			}
 
 #if defined(WOF_REPLAY)
+#if defined(WOF_RUNLOG)
+			if (g_rp_snap) { dbg_s("SNAP "); dbg_s(s_rp_name); dbg_s("\n"); g_rp_snap = false; }	// (a marker only: no pause on the real machine)
+#endif
 			if (g_rp_snap)
 			{
 				// let the new frame reach the screen, then hold it until the host has taken the screenshot
@@ -7486,7 +7602,26 @@ int AGT_EntryPoint()
 			}
 #endif
 
-#if defined(WOF_DIAG)
+#if defined(WOF_RUNLOG)
+			{	// one line per second: frames drawn / slower than the pacing / longest (VBLs), idle %, plane, score
+				static u32 s_rs_t = 0;
+				static s16 s_rs_state = -1;
+				u32 now = run_vbl();
+				if (now - s_rs_t >= 50 || P.state != s_rs_state)
+				{
+					bool sec = now - s_rs_t >= 50;
+					s_rs_state = P.state;
+					dbg_s(sec ? "S f=" : "s f="); dbg_h(((u32)(u8)g_rs_frames << 16) | ((u32)(u8)g_rs_slow << 8) | (u8)g_rs_maxf);
+					dbg_s(" idle="); dbg_h(g_idle_per_vbl && now > s_rs_t ? (u32)(g_idle * 100 / (g_idle_per_vbl * (now - s_rs_t))) : 0);
+					dbg_s(" st="); dbg_h(((u32)(u8)P.state << 24) | ((u32)(u8)g_map_letter << 16) | (u16)g_page);
+					dbg_s(" x="); dbg_h(((u32)(u16)P.x << 16) | (u16)P.y);
+					dbg_s(" sc="); dbg_h(g_score);
+					{ s16 nz = 0; for (s16 i = 0; i < NZERO; i++) if (g_zero[i].state) nz++; dbg_s(" z="); dbg_h(nz); }
+					dbg_s("\n");
+					if (sec) { s_rs_t = now; g_rs_frames = g_rs_slow = g_rs_maxf = 0; g_idle = 0; }
+				}
+			}
+#elif defined(WOF_DIAG)
 			static s16 s_last_state = -1;
 			if ((buffer_index & 3) == 1 || buffer_index < 8 || P.state != s_last_state)
 			{
@@ -7506,6 +7641,10 @@ int AGT_EntryPoint()
 #endif
 		}
 
+#if defined(WOF_RUNLOG)
+		dbg_s("END frames "); dbg_h(run_vbl()); dbg_s(" ticks "); dbg_h(g_run_ticks); dbg_s(" score "); dbg_h(g_score); dbg_s("\n");
+		log_write();
+#endif
 		g_mus_state = 0; mus_hook(false);
 		snd_close();
 		AGT_RemoveInputService();

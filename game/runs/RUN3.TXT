@@ -1,0 +1,247 @@
+# run 3: combat - Zeros, AA guns, carrier bomber, pillboxes, ship sinking, enemy ship guns, kill tally
+# --- zeros
+# map d (replay MAP): the airfield at x 3200..3544 launches Zeros (2 parked, 1 airborne at a time) when the player is
+# within 480 px. A Zero rolls, lifts off and chases / attacks the player; the gun shoots at what is in front.
+MAP d
+4 -
+1 T
+WAITDECK
+1 -
+100 L
+34 UL
+6 L
+GOTO 4300
+4 L
+SNAP 01_airfield
+40 L
+SNAP 02_rolling
+40 L
+SNAP 03_airborne
+30 LH
+SNAP 04_firing
+60 LH
+SNAP 05_later
+60 L
+SNAP 06_later2
+# --- aa_guns
+MAP a
+4 -
+# fly low over the bunker at x 3224 (manned): its AA gun aims and fires (gun/gnf frames), hits puff smoke at the
+# plane and cost oil (diag oil=). GOTO starts the pass just right of the bunker (test aid).
+# EXPECT states 1 0
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+GOTO 3500
+10 L
+SNAP 01_approach
+6 L
+SNAP 02_over
+6 L
+SNAP 03_past
+# --- bomber
+MAP a
+4 -
+# map a, on the deck: a carrier bomber (replay BOMBER) comes in at 6144 px, goes down to altitude 20 before the
+# carrier, drops its torpedo (it runs into the hull: one of the carrier's 4 hits) and escapes
+4 -
+1 T
+WAITDECK
+BOMBER
+300 -
+SNAP 01_waiting
+300 -
+SNAP 02_approach
+200 -
+SNAP 03_later
+200 -
+SNAP 04_after
+# --- pillbox
+# map c (replay MAP), rockets: the island-0 pillbox pair at x 3432 / 3464. Dive at it from the right and fire rockets;
+# three steep passes with rocket spreads: fired nose-down (> 14 degrees) the rockets home in on the pillboxes (FUN_1099a); one destroys a pillbox (+200, cells -> 'pila' + damage mask, smoke) and the pillboxes fire AA while intact
+# (no EXPECT: the homing rockets currently land short of the pillbox, see BACKLOG; this is a smoke test)
+MAP c
+4 -
+1 U
+3 -
+SNAP 01_map_c_menu
+1 T
+WAITDECK
+1 -
+100 L
+45 UL
+4 L
+GOTO 3900
+2 L
+SNAP 02_approach
+5 DL
+1 LT
+1 DL
+1 LT
+1 L
+1 LT
+2 L
+14 UL
+8 L
+GOTO 3950
+2 L
+5 DL
+1 LT
+1 DL
+1 LT
+1 L
+1 LT
+2 L
+14 UL
+8 L
+GOTO 3850
+2 L
+5 DL
+1 LT
+1 DL
+1 LT
+1 L
+1 LT
+2 L
+14 UL
+8 L
+SNAP 03_after
+20 L
+SNAP 04_later
+# --- pillbox_mini
+# pillbox damage in the 1/8 view: map c (pillbox pair at x 3432 / 3464). Climb into the 1/8 view, go above the
+# pair, then hit the left pillbox (test aid XPILL) at its four cells one after the other: in the 1/8 view its top
+# row loses one pixel per hit (as the Amiga's 8thscale pila..pilp), the right pillbox stays whole.
+MAP c
+4 -
+1 T
+WAITDECK
+1 -
+100 L
+40 UL
+40 UL
+GOTO 3460
+6 L
+SNAP 01_whole
+XPILL 3426
+GOTO 3460
+4 L
+SNAP 02_one_hit
+XPILL 3434
+XPILL 3442
+GOTO 3460
+4 L
+SNAP 03_three_hits
+XPILL 3418
+GOTO 3460
+4 L
+SNAP 04_all_four
+# --- ship_sink
+# map f (replay MAP): the transport at x 5360 (one torpedo hit). Low level torpedo run from x 6000, outside the range
+# of the ship's guns (511 px: their splashes destroy a torpedo near the plane, FUN_14efc); the ship sinks
+# (stage 10: +1000 bonus, stage 120: the ship is gone, ship-less tiles from the band, open sea in the wave strip)
+# EXPECT score 3e8
+MAP f
+4 -
+1 D
+3 -
+1 T
+WAITDECK
+1 -
+100 L
+22 UL
+6 L
+GOTO 6000
+1 LT
+3 L
+SNAP 01_torpedo
+8 UL
+GOTO 5420
+4 L
+SNAP 02_hit
+60 L
+GOTO 5420
+4 L
+SNAP 03_sinking
+100 L
+GOTO 5420
+4 L
+SNAP 04_later
+220 L
+GOTO 5420
+4 L
+SNAP 05_gone
+60 L
+GOTO 5420
+8 L
+SNAP 06_gone_later
+# --- far_out_guns
+MAP a
+4 -
+# map j has an enemy ship at the left end of the map. Far out over the open sea beyond it (on the treadmill,
+# 20000 px away) its guns must not fire: the plane flies on unharmed. AWAY / GOTO / MAP = test aids.
+# EXPECT states 1 0
+1 T
+WAITDECK
+MAP j
+4 -
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+GOTO -260
+AWAY -20000
+100 L
+SNAP 01_far_out
+100 L
+SNAP 02_still_flying
+# --- zero_left
+MAP a
+4 -
+# map a, on the deck: an enemy plane (replay ZPASS) flies over the carrier and leaves the screen on the left.
+# The plane must stay visible until it has left the screen (AGT's entity pass drops a sprite whose cell starts more
+# than 32 px left of the screen; those are drawn directly)
+4 -
+1 T
+WAITDECK
+ZPASS
+60 -
+SNAP 01
+2 -
+SNAP 02
+2 -
+SNAP 03
+2 -
+SNAP 04
+2 -
+SNAP 05
+2 -
+SNAP 06
+2 -
+SNAP 07
+2 -
+SNAP 08
+2 -
+SNAP 09
+2 -
+SNAP 10
+# --- kill_tally
+MAP a
+4 -
+# panel: planes shot down as two digits plus one small Zero per kill (two rows of 7)
+4 -
+KILLS 3
+2 -
+SNAP 01_three
+KILLS 12
+2 -
+SNAP 02_twelve
+KILLS 99
+2 -
+SNAP 03_ninety_nine
+END

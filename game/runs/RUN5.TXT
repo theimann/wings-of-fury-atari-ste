@@ -1,0 +1,182 @@
+# run 5: maps - every map loaded and flown over, b to o and a again
+# --- map b: load, take off, fly
+MAP b
+4 -
+SNAP map_b
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_b_air
+250 L
+# --- map c: load, take off, fly
+MAP c
+4 -
+SNAP map_c
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_c_air
+250 L
+# --- map d: load, take off, fly
+MAP d
+4 -
+SNAP map_d
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_d_air
+250 L
+# --- map e: load, take off, fly
+MAP e
+4 -
+SNAP map_e
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_e_air
+250 L
+# --- map f: load, take off, fly
+MAP f
+4 -
+SNAP map_f
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_f_air
+250 L
+# --- map g: load, take off, fly
+MAP g
+4 -
+SNAP map_g
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_g_air
+250 L
+# --- map h: load, take off, fly
+MAP h
+4 -
+SNAP map_h
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_h_air
+250 L
+# --- map i: load, take off, fly
+MAP i
+4 -
+SNAP map_i
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_i_air
+250 L
+# --- map j: load, take off, fly
+MAP j
+4 -
+SNAP map_j
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_j_air
+250 L
+# --- map k: load, take off, fly
+MAP k
+4 -
+SNAP map_k
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_k_air
+250 L
+# --- map l: load, take off, fly
+MAP l
+4 -
+SNAP map_l
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_l_air
+250 L
+# --- map m: load, take off, fly
+MAP m
+4 -
+SNAP map_m
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_m_air
+250 L
+# --- map n: load, take off, fly
+MAP n
+4 -
+SNAP map_n
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_n_air
+250 L
+# --- map o: load, take off, fly
+MAP o
+4 -
+SNAP map_o
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_o_air
+250 L
+# --- map a: load, take off, fly
+MAP a
+4 -
+SNAP map_a
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+SNAP map_a_air
+250 L
+END

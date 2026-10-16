@@ -6,7 +6,7 @@ what they replace.
                           [--skip <top folder> ...] [--keep <top folder> ...] [--first <remote path> ...] [--run <program>]
   cart_deploy.py list     --remote /WOF
   cart_deploy.py activate --remote /WOF <number or build id> [--run <program>]
-  cart_deploy.py run      --remote /WOF <program>
+  cart_deploy.py run      --remote /WOF '<program> [command line]'
 
 Host: $SIDECART_HOST (name or address). $SIDECART_ALIASES (name=address,...) maps names to addresses, so that a
 cartridge keeps its state file whichever way it is named. md-devops' command
@@ -107,7 +107,7 @@ class Card:
             st = sc('runner', 'status') or ''
             if 'busy' in st and ': no' in st.split('busy')[1].split('\n')[0]: break
             time.sleep(1)
-        sc('runner', 'run', prg, quiet=False); print((sc('runner', 'status') or '').strip())
+        sc('runner', 'run', *prg.split(), quiet=False); print((sc('runner', 'status') or '').strip())
 
 
 def main():

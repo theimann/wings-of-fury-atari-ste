@@ -1,0 +1,236 @@
+# run 1: sortie - take-off, landing and elevator, bombs, save and load, soldiers, hut smoke, rockets, torpedo
+# --- takeoff_fire
+MAP a
+4 -
+# take off, climb, fire, nose-dive firing, restart
+# EXPECT states 1 0 1
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+10 -
+SNAP 01_deck
+100 L
+60 UL
+SNAP 02_climb
+20 UL
+SNAP 03_high
+10 LH
+SNAP 04_firing
+12 DH
+SNAP 05_dive_firing
+RESTART
+5 -
+SNAP 06_restart
+# --- landing_elevator
+MAP a
+4 -
+# full sortie end: take off, come back (GOTO = test aid for the turn), land on the wires with UP held, taxi onto the
+# elevator, stop, fire: the elevator takes the plane down, it is re-armed and the weapon menu returns
+# EXPECT states 1 0 1 7 1
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+30 L
+GOTO 7480
+14 U
+SNAP 01_approach
+46 U
+SNAP 02_arrested
+10 -
+35 L
+40 -
+SNAP 03_on_elevator
+1 T
+10 -
+SNAP 04_going_down
+30 -
+SNAP 05_menu_again
+1 T
+WAITDECK
+2 -
+SNAP 06_up_again
+# --- savegame
+MAP a
+4 -
+# saved game: bomb the hut at x 2712, save, load the map afresh (hut whole, score 0), load the save:
+# the wreck, the plane's position and the score are back
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+252 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+10 L
+SNAP 01_bombed
+QSAVE 1
+MAP a
+6 -
+SNAP 02_fresh_map
+QLOAD 1
+2 L
+SNAP 03_loaded
+6 L
+# EXPECT score 96
+# --- soldiers
+MAP a
+4 -
+# bomb the hut at x 2712; 60 ticks later the 5 soldiers run out of the wreck. GOTO brings the plane back over
+# the hut (test aid) to see them in the normal view, then a strafing pass kills some (+25 each)
+# EXPECT states 1 0
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+252 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+70 L
+GOTO 2900
+6 L
+SNAP 01_soldiers
+5 L
+SNAP 02_soldiers
+# --- hut_smoke
+MAP a
+4 -
+# bomb the hut at x 2712, turn back (push right) and fly over it: smoke puffs (smk0-5) rise from the wreck
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+252 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+1 LT
+1 L
+4 L
+SNAP 01_hit
+30 R
+SNAP 02_turn
+10 R
+SNAP 03_back
+8 R
+SNAP 04_over
+# --- rockets
+MAP a
+4 -
+# weapon menu: DOWN selects rockets (1 -> 0), fire takes off; level flight at ~50 px, fire one rocket:
+# it drops away (ro frames), ignites and accelerates ahead of the plane (rc frames)
+# EXPECT states 1 0
+4 -
+SNAP 01_menu_bombs
+1 U
+3 -
+SNAP 02_menu_rockets
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+1 LT
+2 L
+SNAP 03_rocket_drop
+4 L
+SNAP 04_rocket_flying
+4 L
+SNAP 05_rocket_later
+# --- torpedo
+MAP a
+4 -
+# weapon menu: DOWN selects the torpedo (1 -> 2), fire takes off; low level flight, drop the torpedo: it enters the
+# water (dy >= -5), runs at 4.27 px/tick leaving a splash wake (not drawn itself)
+# EXPECT states 1 0
+4 -
+1 D
+3 -
+SNAP 01_menu_torpedo
+1 T
+WAITDECK
+1 -
+100 L
+SNAP 02_slung_deck
+22 UL
+SNAP 03_slung_climb
+6 L
+SNAP 04_slung_level
+1 LT
+3 L
+SNAP 05_torpedo_falling
+8 UL
+6 L
+SNAP 06_torpedo_running
+4 UL
+6 L
+SNAP 07_wake
+# --- torpedo_roll
+MAP a
+4 -
+# take-off roll with the torpedo: once the tail is up the torpedo is drawn behind the gear (order: torpedo, gear,
+# plane, as draw_player_plane)
+4 -
+1 D
+3 -
+1 T
+WAITDECK
+1 -
+60 L
+SNAP 01_roll
+15 L
+SNAP 02_tail_up
+10 L
+SNAP 03_tail_up
+END

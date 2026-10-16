@@ -1,0 +1,8 @@
+Scripted runs (tools/make_runs.py; docs/BUILDING.md, "Scripted runs on real machines")
+
+RUN1  sortie    190 s of play  take-off, landing and elevator, bombs, save and load, soldiers, hut smoke, rockets, torpedo
+RUN2  views     248 s of play  high altitude view, dives, waves, past the map ends, night, help page, gun, oil, speed, deck bob
+RUN3  combat    247 s of play  Zeros, AA guns, carrier bomber, pillboxes, ship sinking, enemy ship guns, kill tally
+RUN4  crashes   239 s of play  crashes into sea, island and carrier, the own carrier sinking, promotion, front end pages
+RUN5  maps      468 s of play  every map loaded and flown over, b to o and a again
+RUN6  soak      517 s of play  six minutes on the deck, then four bombing sorties

@@ -1,0 +1,276 @@
+# run 2: views - high altitude view, dives, waves, past the map ends, night, help page, gun, oil, speed, deck bob
+# --- high_alt
+MAP a
+4 -
+# climb into the 1/8 view (altitude > 186), fly level, dive back to the normal view
+# EXPECT states 1 0 4
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+40 UL
+SNAP 01_climbing
+40 UL
+SNAP 02_zoom_climb
+25 L
+SNAP 03_zoom_level
+10 LD
+SNAP 04_zoom_dive
+30 LD
+SNAP 05_back_normal
+3 LD
+SNAP 06_later
+8 L
+SNAP 07_later2
+# --- dive_scroll
+MAP a
+4 -
+# camera-follow dive without the 1/8 view: climb to ~150 (camera follows above 131), dive back down
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+55 UL
+SNAP 01_top
+12 LD
+SNAP 02_dive
+4 L
+SNAP 03_later
+# --- jump_dive
+MAP a
+4 -
+# force a full rebuild at altitude, then dive with the camera scrolling down (isolates the post-rebuild artefact)
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+55 UL
+JUMP
+1 L
+12 LD
+SNAP 01_after
+4 L
+SNAP 02_later
+# --- waves
+MAP a
+4 -
+# wave animation over open sea (left of the carrier)
+# EXPECT states 1 0
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+25 UL
+40 L
+SNAP 01
+1 L
+SNAP 02
+1 L
+SNAP 03
+# --- map_wrap
+MAP a
+4 -
+# open sea beyond the map (the original's world is a 65536 px circle): past the left end the plane flies on over
+# open sea (treadmill in the sea margin), and after the original's ocean length it comes in at the right end.
+# GOTO / FAROUT = test aids.
+# EXPECT states 1 0
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+30 L
+GOTO 300
+8 L
+SNAP 01_near_left_end
+110 L
+SNAP 02_open_sea
+FAROUT
+60 L
+SNAP 03_in_from_the_right
+60 L
+SNAP 04_back_over_the_map
+# --- map_wrap_high
+MAP a
+4 -
+# the 1/8 view past the left end of the map: the island must scroll out to the right without jumping while the
+# plane is set back on the treadmill (clamp_world_x), then the view is open sea with the plane in the middle,
+# and the island comes back in when the plane turns round.
+# EXPECT states 1 0
+1 T
+WAITDECK
+1 -
+100 L
+40 UL
+40 UL
+25 L
+GOTO 600
+6 L
+SNAP 01_island_in_view
+36 L
+SNAP 02_island_leaving
+30 L
+SNAP 03_before_the_step
+24 L
+SNAP 04_after_the_step
+40 L
+SNAP 05_open_sea
+# --- night
+MAP a
+4 -
+# night palettes (replay NIGHT toggles them; the game rolls a random bit per mission from map h on): deck, then a
+# low pass over the island
+4 -
+1 T
+WAITDECK
+NIGHT
+6 -
+SNAP 01_night_deck
+1 -
+100 L
+34 UL
+6 L
+GOTO 4300
+30 L
+SNAP 02_night_island
+NIGHT
+6 L
+SNAP 03_day_again
+# --- help
+MAP a
+4 -
+# the help page (replay HELP shows it without pausing) on the deck and in flight
+4 -
+HELP
+4 -
+SNAP 01_help_deck
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+10 L
+SNAP 02_help_flying
+HELP
+6 L
+SNAP 03_help_off
+# --- gun_flash
+MAP a
+4 -
+# low flight firing the gun: muzzle flash (hellcat sheet frames, layer 1) drawn at the nose
+# EXPECT states 1 0
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+25 UL
+10 L
+2 LH
+SNAP 01
+1 LH
+SNAP 02
+1 LH
+SNAP 03
+1 LH
+SNAP 04
+# --- oil_turn
+MAP a
+4 -
+# oil needle = engine boost: high with the stick in the flying direction, lower with the stick released, and it stays
+# high while the stick is held against the flying direction (the turn), as on the Amiga (tools/vamiga/shots/oil)
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+20 L
+SNAP 01_left_held
+25 -
+SNAP 02_neutral
+20 L
+SNAP 03_left_again
+6 R
+SNAP 04_turning
+6 R
+SNAP 05_turning
+# --- accel
+MAP a
+4 -
+# speed check: take off, cruise with the stick released (airspeed falls to 1000), then hold the stick in the flying
+# direction (airspeed rises to 1400), then release again. Read x / spd / cam per tick from the log.
+# MENU: fire closes the weapon menu (bombs)
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+4 L
+80 -
+SNAP 01_cruise
+100 L
+SNAP 02_fast
+80 -
+SNAP 03_cruise_again
+# --- carrier_far
+MAP a
+4 -
+# far out over the open sea to the right of the carrier (beyond the map's right end, on the treadmill), flying
+# towards it: the gear must stay up and the forward view must show open sea until the carrier is truly near (03: within 1280 px, gear down, the carrier in the view).
+# AWAY / GOTO = test aids.
+# EXPECT states 1 0
+1 T
+WAITDECK
+1 -
+100 L
+30 UL
+GOTO 8300
+AWAY 20000
+40 L
+SNAP 01_far_out_20000
+60 L
+SNAP 02_still_far_out
+GOTO 8300
+AWAY 0
+12 L
+SNAP 03_carrier_near
+# --- bob_video
+MAP a
+4 -
+# deck: 8 bob steps for a video check of the bob update (black-frame flicker on the STE)
+170 -
+# --- lamps
+MAP a
+4 -
+# the oil and fuel warning lamps blink when oil < 116 / fuel <= 64 (replay LOW). They were never drawn before
+# 2026-10-04: AGT's entity pool was exhausted and the lamps' panel sprites did not exist
+4 -
+1 T
+WAITDECK
+LOW
+3 -
+SNAP 01
+2 -
+SNAP 02
+2 -
+SNAP 03
+2 -
+SNAP 04
+# --- flags_deck
+MAP a
+4 -
+# carrier flag/radar animation on the deck
+3 -
+SNAP 01
+1 -
+SNAP 02
+1 -
+SNAP 03
+1 -
+SNAP 04
+END

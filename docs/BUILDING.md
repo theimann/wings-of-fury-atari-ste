@@ -107,6 +107,30 @@ Screenshots and logs go to `tools/hplay_out/suite/<test>/`. `tools/hatari_play.p
 for sound and video recording; `tools/snapdiff.py` compares the screenshots of two runs. `WOF_MEMSIZE=2` runs with
 2 MB. The script format is described at `WOF_REPLAY` in `game/wof.cpp`.
 
+### Scripted runs on real machines
+
+`make runs` (in `game`) builds `disk1/WOFRUN.PRG`: the replay build without Hatari's debug interface, for real
+machines. It takes the script number from its command line (`RUN2` or `2`: `RUNS/RUN2.TXT`; without one
+`REPLAY.TXT`, else run 1), plays it without pausing (`SNAP` lines are only markers), and keeps a log in memory
+that it writes to `RUNS/RUN<n>.LOG` before every map load and at the end. Each log line starts with the frame
+(VBLs since the start) and the logic tick, both hex. Once a second a line `S f=aabbcc idle=.. st=.. x=.. sc=..`:
+frames drawn in that second (aa), frames that took longer than the pacing (bb), the longest frame in VBLs (cc),
+idle time in percent, then player state, map letter and page, position, score; a line `s` also at every change of
+the player state. `LOAD map x` and `LOADED` give the loading time. Saves and high scores of a run go into `RUNS`,
+not `SAVE`. At the end of the script the program quits.
+
+`tools/make_runs.py` writes the runs into `game/runs` (an index in `INDEX.TXT`) by chaining test scripts;
+`tools/hatari_run.py <script> <outdir>` tries one in Hatari without a window, the way the cartridge runs it.
+
+    cd game && make runs && cd ..
+    python3 tools/make_runs.py
+    WOF_TOS=/path/to/tos206.img tools/hatari_run.py game/runs/RUN1.TXT out/run1
+
+On a SidecarTridge with md-devops: `game/deploy_ste.sh --run=<n>` builds both programs, sends what the card lacks
+into `/WOFRUN` (the loose files, `WOFRUN.PRG`, `RUNS`) and starts run n; `--log=<n>` prints that run's log from the
+card; `--quit` ends a running build of this game (the cartridge's remote quit, below). A program of another folder
+is left alone.
+
 ## The assets
 
 Everything the build reads is in the repository, so the steps below are only needed after changing a tool.
@@ -131,3 +155,8 @@ Everything the build reads is in the repository, so the steps below are only nee
 `game/deploy_ste.sh` uploads a build to a [SidecarTridge Multi-device](https://sidecartridge.com/) cartridge
 running md-devops and starts it (`SIDECART_HOST`, `SIDECART_CLI`). The cartridge's drive emulation rejects file
 seeks; see [AGT_CHANGES.md](AGT_CHANGES.md) and [sidecartridge/](sidecartridge/).
+
+With that cartridge in, the game also looks once per frame for the remote quit of md-devops 1.1.0: a
+`POST /api/v1/runner/adv/meminfo` puts `$603` at `$FA2800`, and the game then ends as with Ctrl+Q. It looks only
+when the cartridge's header (`$ABCDEF42` at `$FA0000`, `TERM` at `$FA0018`, start bit 27) is there and the word
+was not already `$603` at the start.
