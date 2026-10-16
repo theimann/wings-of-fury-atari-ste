@@ -24,6 +24,12 @@ What is still open. Things that are done are not listed.
   `AUTO/WOF.PRG`, `WOF.DAT`, `README.TXT`. To test: both start and load every mission; loading times against the
   build before; the SAVE folder is made on the first start; a `WOF.DAT` that was cut short is reported; a Shift key
   held at the start checks all of it. Checked in Hatari (floppy on TOS 1.62, a hard disk folder, HDDRIVER).
+- **Fewer late frames** (1.0.2): the sound mixer writes each stereo side in one pass (same bytes as before, `make
+  mixtest`), a carrier bob step copies only the tiles that change, the soldier scans, score digits and random
+  numbers are cheaper, and the sound lead no longer grows after a single late frame. Frames over 3 VBLs in the six
+  scripted runs in Hatari: 5758 before, 1743 after (sortie 264 to 90, views 360 to 185, combat 790 to 460, crashes
+  645 to 401, maps 1609 to 516, soak 1090 to 91). To check on the STE and the Mega STE: the run logs, and that the
+  sound is unchanged.
 
 ## Known issues
 
@@ -115,8 +121,13 @@ mission's map (about 13 KB). Tied to the build: a change of a saved struct makes
 **Footprint:** unpacked 5.7 MB (tiles 2.0, maps 2.7); packed floppy 720 KB image with about 95 KB free. The Amiga
 original is 631 KB on its 880 KB disk.
 
-**Speed:** 3 VBLs per frame in flight. A sinking ship costs 0.2 VBL per frame on average, about 1 VBL in its last
-seconds. The forward view costs up to about 8 % low over an island (compiled C; an assembly blitter would free it).
+**Speed:** 3 VBLs per frame (the pacing). The work per frame, measured in Hatari (`tools/hatari_frames.py`), is
+about 2.0 VBLs on the deck and over the sea and 2.3 over a busy map (m); the rest is spare. Its biggest parts: the
+sound mix 0.3 VBL with two voices playing (four voices: about 0.25 VBL for every VBL of sound), the sprites 0.3 to
+0.45, the tile refill 0.25 to 0.35 (waves; a carrier bob step adds up to 0.7 for two frames), the per-frame effects
+0.1 to 0.3, the entity tick 0.22, the forward view 0.1. Frames still go late where several of these peak together:
+a bob step during the take-off roll, a ship sinking with four sounds, the later maps' ships and guns. Mixing at
+6258 Hz would halve the sound's share but spoil the gun and splash samples (17 and 10 kHz).
 
 **AGT:** the changes are in `agt-patch/agtools-local.patch` and described in `docs/AGT_CHANGES.md`. Known AGT fault to report some day: an IMSPR entity
 in the same draw layer as EMX entities, or drawn last in a pass, makes the following EMX drawing crash (our

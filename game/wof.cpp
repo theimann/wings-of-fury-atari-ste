@@ -1303,7 +1303,17 @@ struct smoke_t { s32 x, y, vx, vy; s16 n, t; };
 #define NSMOKE 40
 static smoke_t g_smoke[NSMOKE];
 static u32 g_rng = 0x2545F491;
-static u16 rnd16() { g_rng = g_rng * 1103515245u + 12345u; return (u16)(g_rng >> 16); }	// stand-in for FUN_203be
+// stand-in for FUN_203be: g = g * 1103515245 + 12345 (mod 2^32), the high word. The product is put together from
+// three 16 x 16 bit mulu (gcc called its 32-bit multiply routine: ~270 cycles a number)
+static u16 rnd16()
+{
+	u16 al = (u16)g_rng, ah = (u16)(g_rng >> 16);
+	const u16 bl = (u16)1103515245u, bh = (u16)(1103515245u >> 16);
+	u32 lo = (u32)al * bl;
+	u16 mid = (u16)((u32)ah * bl) + (u16)((u32)al * bh);
+	g_rng = lo + ((u32)mid << 16) + 12345u;
+	return (u16)(g_rng >> 16);
+}
 
 static void spawn_smoke(s16 x, s16 y, s16 n)
 {
@@ -1808,11 +1818,15 @@ static void soldiers_kill(s16 _x, s16 _r)
 }
 
 // FUN_13eee (per drawn frame): run, turn at the sea, enter bunkers, die
-static void soldiers_frame_tick()
+PROF_NOINL static void soldiers_frame_tick()
 {
-	for (s16 i = 0; i < NSOLD; i++)
+	// (a pointer walk with the end worked out once: indexing with the NSOLD expression cost ~160 cycles per slot,
+	// and a big map has 135 slots, most of them empty)
+	soldier_t *end = g_sold + NSOLD;
+	for (soldier_t *ps = g_sold; ps < end; ps++)
 	{
-		soldier_t &so = g_sold[i];
+		if (!ps->state) continue;
+		soldier_t &so = *ps;
 		if (so.state == 1)
 		{
 			if (++so.frame > 4) so.frame = 0;
@@ -3186,17 +3200,17 @@ static void vis_build()
 		if (x >= x0 && x <= x1) g_gun_vis[g_gun_nvis++] = MAX_BUILD + MAX_PILLBOXES + i;
 	}
 	g_sold_nvis = 0;
-	for (s16 i = 0; i < NSOLD && g_sold_nvis < NSOLD_ENT; i++)
+	const soldier_t *end = g_sold + NSOLD;			// (a pointer walk: see soldiers_frame_tick)
+	for (const soldier_t *ps = g_sold; ps < end && g_sold_nvis < NSOLD_ENT; ps++)
 	{
-		const soldier_t &so = g_sold[i];
-		if (so.state != 1 && so.state != 2) continue;
-		s16 x = g_zoom ? MINI_X0 + ((so.x + MARGIN) >> 3) : so.x + MARGIN;
-		if (x >= x0 && x <= x1) g_sold_vis[g_sold_nvis++] = i;
+		if (ps->state != 1 && ps->state != 2) continue;
+		s16 x = g_zoom ? MINI_X0 + ((ps->x + MARGIN) >> 3) : ps->x + MARGIN;
+		if (x >= x0 && x <= x1) g_sold_vis[g_sold_nvis++] = (s16)(ps - g_sold);
 	}
 }
 
 // FUN_13d78 (per drawn frame)
-static void bunkers_frame_tick()
+PROF_NOINL static void bunkers_frame_tick()
 {
 	mini_pill_sync();
 	for (s16 i = 0; i < NBUILD; i++)
@@ -3819,16 +3833,28 @@ static bool bob_apply_step()
 	s16 sx = BOB_SRC_COL + (g_bob_drawn - 2) * BOB_COLS;
 	s16 h = BOB_ROWS - g_bob_row < BOB_ROWS_PER_FRAME ? BOB_ROWS - g_bob_row : BOB_ROWS_PER_FRAME;
 	s16 r = BOB_ROWS - g_bob_row - h;		// bottom-up: the deck rows move in the first frame
-	for (s16 c = 0; c < BOB_COLS; c += 24)
+	// only the cells whose tile changes (the sky around the tower is the same tile at every bob): every copied cell
+	// is redrawn in both buffers by the blitter, ~1/100 VBL each; runs of <= 24 columns for multitouch_rect
+	const s32 *m = mymap.get();
+	s16 W = mymap.getwidth();
+	for (s16 y = r; y < r + h; y++)
 	{
-		s16 w = BOB_COLS - c < 24 ? BOB_COLS - c : 24;
-		g_world->multimod_copy(sx + c, BOB_SRC_ROW + r, BOB_COL0 + c, BOB_DST_ROW + r, w, h, mymap);
+		const s32 *src = m + (s32)(BOB_SRC_ROW + y) * W + sx;
+		const s32 *dst = m + (s32)(BOB_DST_ROW + y) * W + BOB_COL0;
+		for (s16 c = 0; c < BOB_COLS; )
+		{
+			if (src[c] == dst[c]) { c++; continue; }
+			s16 e = c + 1;
+			while (e < BOB_COLS && e - c < 24 && src[e] != dst[e]) e++;
+			g_world->multimod_copy(sx + c, BOB_SRC_ROW + y, BOB_COL0 + c, BOB_DST_ROW + y, e - c, 1, mymap);
+			c = e;
+		}
 	}
 	g_bob_row += h;
 	return g_bob_row < BOB_ROWS;
 }
 
-static void hutsmoke_frame_tick()
+PROF_NOINL static void hutsmoke_frame_tick()
 {
 	for (s16 i = 0; i < NHUTSMOKE; i++)
 	{
@@ -4637,8 +4663,16 @@ static void panel_build()
 		panel_add(31, 20, a % 10);
 	}
 	panel_add(61, 20, g_lives % 10);					// planes left
-	s32 v = g_score;
-	for (s16 i = 6; i >= 0; i--) { panel_add(253 + i * 7, 11, 10 + (s16)(v % 10)); v /= 10; }	// score, white digits
+	// score, white digits (worked out when the score changes: seven 32-bit divisions by 10 cost ~0.09 VBL)
+	static s32 s_score = -1;
+	static s16 s_digit[7];
+	if (g_score != s_score)
+	{
+		s_score = g_score;
+		s32 v = g_score;
+		for (s16 i = 6; i >= 0; i--) { s_digit[i] = (s16)(v % 10); v /= 10; }
+	}
+	for (s16 i = 0; i < 7; i++) panel_add(253 + i * 7, 11, 10 + s_digit[i]);
 	// planes shot down (G_252cf, shown up to 99); its tally is drawn directly in the panel pass (main loop)
 	s16 kills = g_zero_kills > 99 ? 99 : g_zero_kills;
 	panel_add(251, 21, 10 + (kills / 10) % 10);
@@ -6587,6 +6621,9 @@ int AGT_EntryPoint()
 		loader_init();
 #if defined(WOF_SOUND)
 		snd_init();
+#if defined(WOF_MIXTEST)
+		snd_mixtest();
+#endif
 #endif
 #if !defined(WOF_REPLAY)
 		intro_joy(true);
