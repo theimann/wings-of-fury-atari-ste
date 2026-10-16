@@ -152,7 +152,9 @@ Hatari's CPU is cycle-exact, so the frame time of a scripted run can be measured
     tools/hatari_frames.py game/runs/RUN1.TXT out/frames
 
 The program's TEXT segment starts at 0xceba in this set-up (2 MB STE, TOS 2.06, GEMDOS drive); `--text` changes it.
-Only the cycles of the emulated machine count, so the runs can use fast forward.
+Only the cycles of the emulated machine count, so the runs can use fast forward. The run log's line per second
+(`WOF_RUNLOG`) costs about 0.27 VBL itself; it lands in the section "panel sprites, swap", and in late frames that
+the game without the log would not have.
 
 ## The assets
 

@@ -19,7 +19,7 @@ SECTIONS = {			# section n runs from marker n to the next marker (game/wof.cpp, 
     0: 'input, pages, map switch', 1: 'logic ticks, scroll wrap', 2: 'sound mix', 3: 'fx tick', 4: 'fx build',
     5: 'carrier bob, camera', 6: 'hud/panel/vis build, pools', 7: 'EntityTickAll + links', 8: 'waves, blank, rebuild',
     9: 'playfield select', 10: 'bgrestore', 11: 'hybrid_fill', 12: 'direct sprites, pages',
-    13: 'playfield sprites, message', 15: 'forward view', 16: 'panel, swap', 14: 'pacing wait'}
+    13: 'playfield sprites, message', 15: 'panel restore, fill', 17: 'forward view', 16: 'panel sprites, swap', 14: 'pacing wait'}
 
 
 def marks():
@@ -74,7 +74,7 @@ def main():
     late = [f for f in frames if f[1] > 3 * VBL_CYC + 2000]
     ok = [f for f in frames if f[1] <= 3 * VBL_CYC + 2000]
     rep.append('%d frames, %d late (more than 3 VBLs); cycles per VBL %d' % (len(frames), len(late), VBL_CYC))
-    order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 14]
+    order = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 17, 16, 14]
     rep.append('%-30s %10s %10s %10s' % ('section (VBLs)', 'on time', 'late', 'late max'))
     for n in order:
         name = SECTIONS.get(n, str(n))
@@ -87,7 +87,7 @@ def main():
     rep.append('')
     rep.append('most expensive frames (work in VBLs; sections over 0.3 VBL):')
     for f in sorted(frames, key=lambda f: -work(f))[:40]:
-        big = ', '.join('%s %.2f' % (SECTIONS[n], c / VBL_CYC)
+        big = ', '.join('%s %.2f' % (SECTIONS.get(n, str(n)), c / VBL_CYC)
                         for n, c in sorted(f[2].items(), key=lambda x: -x[1]) if c > 0.3 * VBL_CYC and n != 14)
         rep.append('  VBL %6d  frame %.2f  work %.2f  %s' % (f[0] // VBL_CYC, f[1] / VBL_CYC, work(f), big))
     if every:
