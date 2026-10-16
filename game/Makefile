@@ -164,6 +164,25 @@ runs:
 	[ $$(( $$(wc -c < $(PRODUCT_DISK1)/WOFRUN.PRG) % 2 )) = 0 ] || printf '\0' >> $(PRODUCT_DISK1)/WOFRUN.PRG
 .PHONY: runs
 
+# the run build with section markers for timing frames in Hatari (tools/hatari_frames.py): make prof -> disk1/WOFPROF.PRG
+prof:
+	$(MAKE) BUILD_DIR=build_prof WOF_EXTRA_DEFS="-DWOF_DIAG -DWOF_REPLAY -DWOF_RUNLOG -DWOF_PROFMARK" build_prof/wof.prg
+	cp build_prof/wof.prg $(PRODUCT_DISK1)/WOFPROF.PRG
+.PHONY: prof
+
+# the run build with the per-frame effect functions not inlined, for CPU profiles by function (PROF_NOINL in wof.cpp;
+# tools/hatari_run.py --profile --prg WOFPROFN.PRG, tools/prof_report.py --build game/build_profn)
+profn:
+	$(MAKE) BUILD_DIR=build_profn WOF_EXTRA_DEFS="-DWOF_DIAG -DWOF_REPLAY -DWOF_RUNLOG -DWOF_NOINLINE" build_profn/wof.prg
+	cp build_profn/wof.prg $(PRODUCT_DISK1)/WOFPROFN.PRG
+.PHONY: profn
+
+# the run build with a test of the sound mixer against the former one at the start (MIXTEST line in the run log)
+mixtest:
+	$(MAKE) BUILD_DIR=build_mixt WOF_EXTRA_DEFS="-DWOF_DIAG -DWOF_REPLAY -DWOF_RUNLOG -DWOF_MIXTEST" build_mixt/wof.prg
+	cp build_mixt/wof.prg $(PRODUCT_DISK1)/WOFMIXT.PRG
+.PHONY: mixtest
+
 # Hatari variant of the diagnostic build (NatFeats output into Hatari's log): make hdiag -> disk1/WOFHDIAG.PRG
 hdiag:
 	$(MAKE) BUILD_DIR=build_hdiag USE_HATARI_NATFEATS=yes WOF_EXTRA_DEFS="-DWOF_DIAG -DWOF_HDIAG -DAGT_CONFIG_HATARI_DEBUG" build_hdiag/wof.prg
@@ -199,4 +218,4 @@ version.h: FORCE
 FORCE:
 .PHONY: FORCE
 
-$(BUILD_DIR)/wof.o build_psnd/wof.o build_snd/wof.o build_playsnd/wof.o build_play/wof.o build_runs/wof.o build_hdiag/wof.o build_plain/wof.o build_playplain/wof.o: flight_data.h flash_data.h snd_data.h snd.h version.h
+$(BUILD_DIR)/wof.o build_psnd/wof.o build_snd/wof.o build_playsnd/wof.o build_play/wof.o build_runs/wof.o build_prof/wof.o build_profn/wof.o build_mixt/wof.o build_hdiag/wof.o build_plain/wof.o build_playplain/wof.o: flight_data.h flash_data.h snd_data.h snd.h version.h

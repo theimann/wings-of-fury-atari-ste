@@ -8,6 +8,11 @@
 //	  up/down = stick forward/back (forward = nose up), left/right = throttle (toward the nose) / half-loop (against)
 //======================================================================================================================
 
+#if defined(WOF_NOINLINE)
+#define PROF_NOINL __attribute__((noinline))	// (profiling only: these functions keep their own code, so a CPU profile can name them)
+#else
+#define PROF_NOINL
+#endif
 #include <mint/sysbind.h>
 #include <mint/osbind.h>
 #include <stdio.h>
@@ -585,6 +590,15 @@ static void cart_detect()
 	g_cart_quit = *(volatile u32 *)0xFA0000L == 0xABCDEF42L && *(volatile u32 *)0xFA0018L == 0x5445524DL
 		&& (*(volatile u32 *)0xFA0008L >> 24) == 0x08 && *(volatile u32 *)0xFA2800L != 0x603;
 }
+#if defined(WOF_PROFMARK)
+// Section markers for timing in Hatari (make prof, tools/hatari_frames.py): each PMARK(n) calls its own empty
+// function; a tracing breakpoint on it prints the VBL and the cycle within the frame
+template<int N> static void __attribute__((noinline)) pmark() { __asm__ volatile("" ::: "memory"); }
+#define PMARK(_n_) pmark<_n_>()
+#else
+#define PMARK(_n_)
+#endif
+
 #if defined(WOF_RUNLOG)
 static s16 g_rs_frames = 0, g_rs_slow = 0, g_rs_maxf = 0;	// per second of the run log: frames, slower than the pacing, longest
 #endif
@@ -1307,7 +1321,7 @@ static void spawn_smoke(s16 x, s16 y, s16 n)
 	}
 }
 
-static void smoke_frame_tick()
+PROF_NOINL static void smoke_frame_tick()
 {
 	for (s16 i = 0; i < NSMOKE; i++)
 	{
@@ -2381,7 +2395,7 @@ static void ships_tick()
 }
 
 // 14c3e (per drawn frame): guns of the living, not sinking ships fire while the player flies
-static void ship_guns_frame_tick()
+PROF_NOINL static void ship_guns_frame_tick()
 {
 	for (s16 i = 0; i < g_nsgun; i++)
 	{
@@ -3557,7 +3571,7 @@ static s16 g_crew_sig = -1, g_crew_a = 1, g_crew_at = 1, g_crew_b = 1, g_crew_bt
 static s16 g_flash_ctr = 0;			// [252d8] muzzle flash pattern index (0x24b58 = {0,1,0,2})
 static const u8 c_flash_pat[4] = { 0, 1, 0, 2 };
 
-static void crew_frame_tick()
+PROF_NOINL static void crew_frame_tick()
 {
 	s16 sig = P.signal;
 	if (sig < 0 || sig > 5) sig = 3;
@@ -3582,7 +3596,7 @@ static void crew_frame_tick()
 // flags (draw_special_map_cell 13b1c): tower 252dd counts 3..0 on every 2nd drawn frame, frame = flg3 + {3,2,1,0}[n];
 // island 252d0 counts 2..0 every drawn frame, frame = flg0 + n while the island is garrisoned, else 'POST'
 static s16 g_flag_us = 3, g_flag_jp = 2, g_flag_fc = 0;
-static void flag_frame_tick()
+PROF_NOINL static void flag_frame_tick()
 {
 	if (++g_flag_fc & 1)
 		if (--g_flag_us < 0) g_flag_us = 3;
@@ -3702,7 +3716,7 @@ void flag_fntick(entity_t *_pself)
 // wave strip (FUN_13e6c): frame 0x4e + n, n steps 11..0 once every 2 drawn frames. The strip is one tile row
 // (WAVE_DST_ROW); the visible part is refreshed from the phase's row of the source band (objects composited).
 static s16 g_wave_n = 0, g_wave_fc = 0;
-static void wave_frame_tick()
+PROF_NOINL static void wave_frame_tick()
 {
 	if (++g_wave_fc & 1)
 		if (--g_wave_n < 0) g_wave_n = WAVE_PHASES - 1;
@@ -3892,7 +3906,7 @@ static bool lamp_blink(s16 &_cnt, s16 _period)	// 9-of-11 / 7-of-9 on: cnt-- > 0
 	if (_cnt != 0) _cnt = _period;
 	return false;
 }
-static void gauges_frame_tick()
+PROF_NOINL static void gauges_frame_tick()
 {
 	bool active = P.state == PS_FLYING || P.state == PS_DECK || P.state == PS_ARRESTED;
 	s16 t = (P.oil < 0x60 ? 0 : P.oil - 0x60) * 2 & ~3;
@@ -6898,6 +6912,7 @@ int AGT_EntryPoint()
 #endif
 				break;
 			}
+			PMARK(14);						// (the frame's work is done: the pacing wait follows)
 			// frame pacing: at least g_frame_vbls VBLs per drawn frame (1 = as fast as possible, ~25 fps here;
 			// 3 = the Amiga's steady 16.7 fps with headroom for sound / more objects)
 			static s16 s_frame_vbl = 0;		// 16-bit like vbl_now(): differences survive the counter wrap (10.9 min)
@@ -6920,6 +6935,7 @@ int AGT_EntryPoint()
 #endif
 			}
 
+			PMARK(0);
 			poll_fire();
 
 			if (g_session_over && !g_page && !g_loading && !g_map_request)	// game over: name entry if in the best ten, then the table
@@ -7198,6 +7214,7 @@ int AGT_EntryPoint()
 				}
 			}
 
+			PMARK(1);
 			// fixed 12.5 Hz logic: one tick per 4 VBLs (catch up if a frame took longer)
 			s16 behind = (s16)(vbl_now() - tick_vbl);
 			if (behind > 16 || behind < 0) { tick_vbl = vbl_now() - 4; behind = 4; }
@@ -7234,7 +7251,9 @@ int AGT_EntryPoint()
 				if (sp && !g_snd_paused && !g_mus_hooked) for (s16 i = 0; i < SND_RING; i++) g_snd_ring[i] = 0;	// whole ring silent at once
 				g_snd_paused = sp;
 			}
+			PMARK(2);
 			{ static s16 s_mix_vbl = 0; s16 v = vbl_now(); if (!g_mus_hooked) snd_mix((s16)(v - s_mix_vbl)); s_mix_vbl = v; }	// (menu music mixes in the VBL)
+			PMARK(3);
 #endif
 
 			// effects advance per drawn frame on the Amiga (~16.7 fps): once per 3 VBLs here, whatever our frame time
@@ -7291,8 +7310,10 @@ int AGT_EntryPoint()
 					}
 				}
 			}
+			PMARK(4);
 			fx_build(behind);
 
+			PMARK(5);
 			// carrier bob tiles, before the sprites are placed: the deck rows (bottom of the block) move in the first
 			// step, so the plane / crew use the new bob at once; the tower flag follows when its rows (top) are done
 			if (g_bob_row >= BOB_ROWS && g_wave_bob != g_bob_drawn && g_carrier.hits > 0)	// (a sinking carrier does not bob)
@@ -7339,6 +7360,7 @@ int AGT_EntryPoint()
 			g_cam_x = g_pic ? (cx & ~15) : cx;		// (a picture page is copied to the screen at a 16-px position)
 			g_cam_y = cy;
 
+			PMARK(6);
 			hud_build();
 			panel_build();
 
@@ -7352,9 +7374,11 @@ int AGT_EntryPoint()
 			pool_tick(POOL_GUN, g_gun_nvis);
 			pool_tick(POOL_ZERO, g_nzd);
 			pool_tick(POOL_PANEL, g_panel_count);
+			PMARK(7);
 			EntityTickAll();
 			EntityExecuteAllLinks();
 			EntityExecuteAllRemoves();
+			PMARK(8);
 
 			// (day / night: decided per mission from map h on; the test rig's NIGHT command toggles it)
 #if defined(WOF_REPLAY)
@@ -7421,14 +7445,18 @@ int AGT_EntryPoint()
 			}
 			else
 			{
+			PMARK(9);
 			// view 0: playfield
 			EntitySelectViewport(s_pe_viewport);
 			{
 			myworld.select_buffer(buffer_index & 1);
 			tk_restore(buffer_index & 1);				// (the message line's text of two frames ago)
 			myworld.setpos(g_cam_x, g_cam_y);
+			PMARK(10);
 			myworld.bgrestore();
+			PMARK(11);
 			myworld.hybrid_fill(false);
+			PMARK(12);
 			myworld.get_context(drawcontext, 0, VIEWPORT_XSIZE, VIEWPORT_YSIZE);
 			if (!g_zoom && !g_help && !g_help_peek && !g_pause && !g_loading && !g_page)
 			{
@@ -7504,6 +7532,7 @@ int AGT_EntryPoint()
 					help_text(drawcontext, 12, 13, m);
 				}
 			}
+			PMARK(13);
 			EntityDrawVisible(&drawcontext);
 			if (g_bal_count && !g_help && !g_help_peek && !g_pause && !g_loading && !g_page)
 			{
@@ -7532,6 +7561,7 @@ int AGT_EntryPoint()
 				}
 			}
 
+			PMARK(15);
 			// view 1: cockpit panel (static map, sprites for the counters). Its sprites rarely change, and restoring
 			// and drawing them costs about half a VBL: done only for the two frames (both buffers) after a change
 			static u16 s_panel_sig = 0xffff;
@@ -7549,6 +7579,7 @@ int AGT_EntryPoint()
 			panelworld.hybrid_fill(false);
 			panelworld.get_context(panelcontext, 0, VIEWPORT_XSIZE, PANEL_YSIZE);
 			fpv_draw(panelcontext);
+			PMARK(16);
 			if (g_panel_dirty)
 			{
 			g_panel_dirty--;

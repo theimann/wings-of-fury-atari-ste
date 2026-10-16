@@ -131,6 +131,29 @@ into `/WOFRUN` (the loose files, `WOFRUN.PRG`, `RUNS`) and starts run n; `--log=
 card; `--quit` ends a running build of this game (the cartridge's remote quit, below). A program of another folder
 is left alone.
 
+### Frame times and profiles in Hatari
+
+Hatari's CPU is cycle-exact, so the frame time of a scripted run can be measured there to the cycle. Three tools:
+
+- `tools/hatari_frames.py <script> <outdir>`: every drawn frame, section by section. `make prof` builds
+  `disk1/WOFPROF.PRG`, the run build with `PMARK(n)` markers in the main loop (each an empty function of its own); a
+  tracing breakpoint on each prints the VBL and the cycle within the frame. The report (`frames.txt`) gives each
+  section's average cost in VBLs for the frames on time and for the late ones (longer than 3 VBLs), and the most
+  expensive frames; `--frames` adds one line per frame.
+- `tools/hatari_run.py <script> <outdir> --profile`: Hatari's profiler from the boot to the program's end;
+  `tools/prof_report.py <outdir>` sums the cycles per function (link map plus `nm`, static functions too). `make
+  profn` builds `disk1/WOFPROFN.PRG` with the per-frame effect functions kept out of line (`PROF_NOINL`), for
+  `--prg WOFPROFN.PRG` and `prof_report.py --build game/build_profn`. With a symbol file
+  (`prof_report.py --symfile f.sym --build ...`, then `WOF_PROF_SYMS=f.sym`) Hatari also records the callers.
+- `make mixtest`: `disk1/WOFMIXT.PRG` mixes 300 random voice set-ups with the sound mixer and with the former one
+  and writes `MIXTEST cases .. bad ..` into the run log (run it with `hatari_run.py ... --prg WOFMIXT.PRG`).
+
+    cd game && make prof && cd ..
+    tools/hatari_frames.py game/runs/RUN1.TXT out/frames
+
+The program's TEXT segment starts at 0xceba in this set-up (2 MB STE, TOS 2.06, GEMDOS drive); `--text` changes it.
+Only the cycles of the emulated machine count, so the runs can use fast forward.
+
 ## The assets
 
 Everything the build reads is in the repository, so the steps below are only needed after changing a tool.
