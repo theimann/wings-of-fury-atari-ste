@@ -228,7 +228,6 @@ enum EntityType : int
 	EntityType_SOLDIER,		// island soldiers (pool, see g_sold)
 	EntityType_GUN,			// AA guns on bunkers (one per building slot, drawn when g_gun_frame >= 0)
 	EntityType_WEAPON,		// rockets / torpedoes in flight (one per projectile slot) + weapon menu (2), IMSPR layer 1
-	EntityType_PANEL,		// cockpit panel digits/icon (drawn in the panel view)
 	EntityType_MINI,		// player plane in the 1/8 high-altitude view (8thscale lpn*)
 	EntityType_SEPBAR,		// black fill over the playfield's last SEP_H lines (shown with the panel palette)
 	EntityType_ZERO,		// enemy planes, parked / rolling planes, wrecks (pool fed by zeros_draw_build), layer 1
@@ -474,7 +473,6 @@ spritesheet font_asset;		// help screen font (tools/make_font.py), drawn directl
 spritesheet mini_asset;
 spritesheet zero_asset;
 spritesheet zmini_asset;
-static entity_t *s_pe_panelview = NULL;
 static drawcontext_t panelcontext;
 static arena_t *g_world = NULL;		// for map edits from the game logic
 
@@ -612,7 +610,7 @@ static u8 *g_pic = 0;
 static u8 *g_loader = 0;					// the loading screen's buffer (permanent)
 static s16 g_pic_dirty = 0;				// frames left in which the picture is copied to the screen (both buffers)
 static bool g_pic_restore = false;		// the last picture page closed: rebuild playfield, panel and palettes
-static s16 g_panel_dirty = 2;			// frames left in which the panel sprites are redrawn (see the panel pass)
+static s16 g_panel_dirty = 0;			// redraw all panel items in both buffers (see panel_restore)
 static bool g_fpv_redraw = false;		// copy the forward view to the screen again
 static s16 g_loading = 0;				// > 0: the loading screen is up; the map switch / page load follows when it reaches 1
 static s16 g_page_next = 0;				// page to open once the loading screen shows (its picture is read from disk)
@@ -4647,14 +4645,22 @@ static void hud_build()
 }
 
 // cockpit panel: sprites in panel coordinates (panel view origin 0,0). Positions from tools/make_panel.py PANEL_POS.
-#define NPANEL 20
+#define NPANEL 32
 static fxdraw_t g_panel[NPANEL];
 static s16 g_panel_count = 0;
 #define PANEL_MAP_X0 16		// panel map is padded by 16 px; the panel view is positioned at map x 16
-static void panel_add(s16 x, s16 y, s16 frame) { if (g_panel_count < NPANEL) { g_panel[g_panel_count].x = x + PANEL_MAP_X0; g_panel[g_panel_count].y = y; g_panel[g_panel_count].frame = frame; g_panel_count++; } }
+static u16 g_panel_gen = 0;			// counts the changes to the list (panel_restore skips the frames without one)
+static void panel_add(s16 x, s16 y, s16 frame)
+{
+	if (g_panel_count >= NPANEL) return;
+	fxdraw_t &d = g_panel[g_panel_count++];
+	x += PANEL_MAP_X0;
+	if (d.x != x || d.y != y || d.frame != frame) { d.x = x; d.y = y; d.frame = frame; g_panel_gen++; }
+}
 
 static void panel_build()
 {
+	s16 n0 = g_panel_count;
 	g_panel_count = 0;
 	panel_add(8, 11, g_weapon == 0 ? 21 : g_weapon == 1 ? 20 : 22);	// weapon icon misl / bomb / torp
 	{
@@ -4682,23 +4688,85 @@ static void panel_build()
 	panel_add(215 - 16, 18 - 12, 23 + (g_gauge_fuel >> 2));
 	if (g_lamp_oil) panel_add(101, 10, 46);
 	if (g_lamp_fuel) panel_add(212, 10, 46);
+	// kill tally (hud_draw_kill_tally 1f200): one small Zero per kill, two rows of 7 at hires (534,19) / (534,25),
+	// 13 hires px apart (last: a new kill only adds items)
+	for (s16 i = 0; i < 7 && i < kills; i++) panel_add(265 + (i * 13) / 2, 17, 47);
+	for (s16 i = 0; i < 7 && i < kills - 7; i++) panel_add(265 + (i * 13) / 2, 23, 47);
+	if (g_panel_count != n0) g_panel_gen++;
 }
 
-void panel_fntick(entity_t *_pself)
+// The panel items are drawn straight into the panel's two buffers. Per buffer the items on screen are kept; an item
+// that changed gets the background under its old and its new place copied back from a clean copy of the panel (rows,
+// 16 px columns), and every item on those places is drawn again (a whole-panel redraw cost about 0.4 VBL per buffer;
+// AGT's tile refresh about 0.2 VBL for a gauge needle).
+static fxdraw_t s_pshown[2][NPANEL];			// what each buffer shows
+static s16 s_pshown_n[2] = { 0, 0 };
+static u16 s_pgen[2];							// g_panel_gen when each buffer was brought up to date
+static bool s_pforce[2] = { true, true };		// redraw all (start, map load, after the picture pages)
+static u32 s_pclean[PANEL_YSIZE * 40];			// the panel without items: 20 columns of 16 px (4 planes) per line
+static bool s_pclean_ok = false;
+struct prect_t { s16 c0, c1, y0, y1; };		// columns (16 px, panel x) and lines, inclusive
+static prect_t s_prect[2][NPANEL];				// the places of the items shown
+static void panel_rect(prect_t &_r, const fxdraw_t &_d)
 {
-	entity_t &self = *_pself;
-	s16 k = self.counter;
-	if (k < g_panel_count)
+	spritesheet::spf_header *f = panel_asset.get()->frameindex[_d.frame];
+	s16 x0 = _d.x - PANEL_MAP_X0 + (f->xo < 0 ? f->xo : 0), x1 = _d.x - PANEL_MAP_X0 + (f->xo > 0 ? f->xo : 0) + f->w - 1;
+	s16 y0 = _d.y + (f->yo < 0 ? f->yo : 0), y1 = _d.y + (f->yo > 0 ? f->yo : 0) + f->h - 1;
+	_r.c0 = x0 < 0 ? 0 : x0 >> 4; _r.c1 = x1 > 319 ? 19 : x1 >> 4;
+	_r.y0 = y0 < 0 ? 0 : y0; _r.y1 = y1 >= PANEL_YSIZE ? PANEL_YSIZE - 1 : y1;
+}
+static u32 *panel_line(const drawcontext_t &_c, s16 _y)
+{
+	return (u32 *)((u8 *)_c.p_pfframebuffer + (PANEL_MAP_X0 >> 1) + (s32)(_y - _c.pfsnapadjy) * g_linebytes);
+}
+static void panel_clean_take(const drawcontext_t &_c)
+{
+	for (s16 y = 0; y < PANEL_YSIZE; y++)
 	{
-		self.rx = g_panel[k].x; self.ry = g_panel[k].y;
-		self.frame = g_panel[k].frame;
-		self.drawtype = EntityDraw_IMSPR;
+		const u32 *q = panel_line(_c, y);
+		u32 *d = s_pclean + y * 40;
+		for (s16 n = 40; n > 0; n--) *d++ = *q++;
 	}
-	else
+	s_pclean_ok = true;
+}
+// work out what changed in buffer _b and copy the background back there; returns the items to draw (bit k)
+static u32 panel_restore(const drawcontext_t &_c, s16 _b)
+{
+	if (!s_pforce[_b] && s_pgen[_b] == g_panel_gen) return 0;
+	s_pgen[_b] = g_panel_gen;
+	prect_t rr[2 * NPANEL];
+	s16 nr = 0;
+	fxdraw_t *sh = s_pshown[_b];
+	prect_t *pr = s_prect[_b];
+	s16 nsh = s_pshown_n[_b], n = g_panel_count > nsh ? g_panel_count : nsh;
+	for (s16 k = 0; k < n; k++)
 	{
-		self.rx = 0; self.ry = 0;
-		self.drawtype = EntityDraw_NONE;
+		if (!s_pforce[_b] && k < nsh && k < g_panel_count && sh[k].x == g_panel[k].x && sh[k].y == g_panel[k].y
+			&& sh[k].frame == g_panel[k].frame) continue;
+		if (k < nsh) rr[nr++] = pr[k];
+		if (k < g_panel_count) { sh[k] = g_panel[k]; panel_rect(pr[k], sh[k]); rr[nr++] = pr[k]; }
 	}
+	s_pforce[_b] = false;
+	s_pshown_n[_b] = g_panel_count;
+	if (!nr) return 0;
+	for (s16 i = 0; i < nr; i++)
+	{
+		const prect_t &r = rr[i];
+		s16 w = (r.c1 - r.c0 + 1) * 2;
+		u32 *d = panel_line(_c, r.y0) + r.c0 * 2;
+		const u32 *q = s_pclean + r.y0 * 40 + r.c0 * 2;
+		for (s16 y = r.y1 - r.y0; y >= 0; y--, d = (u32 *)((u8 *)d + g_linebytes), q += 40)
+			for (s16 j = 0; j < w; j++) d[j] = q[j];
+		if (r.c1 >= 130 / 16 && r.c0 <= 189 / 16 && r.y1 >= 7 && r.y0 <= 31) g_fpv_redraw = true;	// (forward view window)
+	}
+	u32 draw = 0;
+	for (s16 k = 0; k < g_panel_count; k++)
+	{
+		const prect_t &t = pr[k];
+		for (s16 i = 0; i < nr; i++)
+			if (t.c0 <= rr[i].c1 && t.c1 >= rr[i].c0 && t.y0 <= rr[i].y1 && t.y1 >= rr[i].y0) { draw |= 1UL << k; break; }
+	}
+	return draw;
 }
 
 void hud_fntick(entity_t *_pself)
@@ -6407,10 +6475,10 @@ COLD static bool pic_wait(s16 _frames)
 }
 #endif
 
-// Pooled sprites (effects, soldiers, guns, enemy planes, panel digits: 126 of the 190 entities) are not ticked by AGT.
+// Pooled sprites (effects, soldiers, guns, enemy planes: 106 of the 169 entities) are not ticked by AGT.
 // Most of them are idle, and a tick call per entity per frame cost about half a VBL. Each pool's update function is
 // called for the entities in use, and for those in use the frame before, so they hide themselves.
-enum { POOL_FX, POOL_SOLDIER, POOL_GUN, POOL_ZERO, POOL_PANEL, POOL_N };
+enum { POOL_FX, POOL_SOLDIER, POOL_GUN, POOL_ZERO, POOL_N };
 struct pool_t { entity_t *pe[NFX]; s16 n, prev; void (*fn)(entity_t *); };
 static pool_t g_pool[POOL_N];
 static void pool_add(s16 _p, entity_t *_pe, void (*_fn)(entity_t *))
@@ -6706,8 +6774,7 @@ int AGT_EntryPoint()
 		EntityDefAsset_Sprite(EntityType_HUD, &hud_asset);
 		paneltiles.load_cct("panel.cct");
 		panelmap.load_ccm("panel.ccm");
-		panel_asset.load("panelspr.spr");			// IMSPR (EMX: 165 KB); the panel pass ends with the EMX tail (sepbar 10)
-		EntityDefAsset_Sprite(EntityType_PANEL, &panel_asset);
+		panel_asset.load("panelspr.spr");			// IMSPR (EMX: 165 KB), drawn directly (panel_draw)
 		zero_asset.load("zeros.spr");
 		EntityDefAsset_Sprite(EntityType_ZERO, &zero_asset);
 		zmini_asset.load("zmini.spr");
@@ -6831,7 +6898,6 @@ int AGT_EntryPoint()
 		panelworld.bgrestore_reset();
 		panelworld.reset(PANEL_MAP_X0, 0);
 
-		s_pe_panelview = EntitySpawn(EntityType_VIEWPORT, PANEL_MAP_X0 - c_viewport_xmargin, 0 - c_viewport_ymargin);
 		s_pe_viewport = EntitySpawn(EntityType_VIEWPORT, g_cam_x - c_viewport_xmargin, g_cam_y - c_viewport_ymargin);
 		EntitySelectViewport(s_pe_viewport);
 		s_pe_torp = EntitySpawn(EntityType_TORP, g_cam_x + 160 - PL_AX, g_cam_y);		// (before the plane: drawn under it)
@@ -6845,7 +6911,7 @@ int AGT_EntryPoint()
 		}
 		EntitySpawn(EntityType_FLASH, g_cam_x, g_cam_y);
 		EntitySpawn(EntityType_MINI, g_cam_x, g_cam_y);
-		for (s16 k = 0; k <= SCREEN_XSIZE / 32; k++)		// 10 bars + the panel pass tail (counter 10)
+		for (s16 k = 0; k < SCREEN_XSIZE / 32; k++)		// 10 bars
 		{
 			entity_t *pe = EntitySpawn(EntityType_SEPBAR, g_cam_x, g_cam_y + PF_H - SEP_H);
 			pe->counter = k;
@@ -6888,15 +6954,9 @@ int AGT_EntryPoint()
 			pe->counter = k;
 			pool_add(POOL_ZERO, pe, &zero_fntick);
 		}
-		for (s16 k = 0; k < NPANEL; k++)
-		{
-			entity_t *pe = EntitySpawn(EntityType_PANEL, 0, 0);
-			pe->counter = k;
-			pool_add(POOL_PANEL, pe, &panel_fntick);
-		}
 		EntityExecuteAllLinks();
 #if defined(WOF_DIAG)
-		if (g_pool[POOL_PANEL].n < NPANEL || g_pool[POOL_ZERO].n < NZDRAW) dbg_s("ERROR: entity pool exhausted (AGT c_max_entities)\n");
+		if (g_pool[POOL_ZERO].n < NZDRAW) dbg_s("ERROR: entity pool exhausted (AGT c_max_entities)\n");
 #endif
 
 		s16 buffer_index = 0;
@@ -6926,7 +6986,7 @@ int AGT_EntryPoint()
 				{ EntityType_HELLCAT, &hellcat_fntick }, { EntityType_WHEELS, &wheels_fntick }, { EntityType_TORP, &torp_fntick }, { EntityType_FX, &fx_fntick },
 				{ EntityType_FLASH, &flash_fntick }, { EntityType_CREW, &crew_fntick }, { EntityType_FLAG, &flag_fntick },
 				{ EntityType_HUD, &hud_fntick }, { EntityType_SOLDIER, &soldier_fntick }, { EntityType_GUN, &gun_fntick }, { EntityType_WEAPON, &weapon_fntick },
-				{ EntityType_PANEL, &panel_fntick }, { EntityType_MINI, &mini_fntick }, { EntityType_SEPBAR, &sepbar_fntick }, { EntityType_ZERO, &zero_fntick } };
+				{ EntityType_MINI, &mini_fntick }, { EntityType_SEPBAR, &sepbar_fntick }, { EntityType_ZERO, &zero_fntick } };
 			for (u16 i = 0; i < sizeof(c_chk) / sizeof(c_chk[0]); i++)
 				if (entity_dictionary[c_chk[i].t].fntick != c_chk[i].f) { dbg_s("ERROR: entity_dictionary order, type "); dbg_h(c_chk[i].t); dbg_s("\n"); }
 		}
@@ -7410,7 +7470,6 @@ int AGT_EntryPoint()
 			pool_tick(POOL_SOLDIER, g_sold_nvis);
 			pool_tick(POOL_GUN, g_gun_nvis);
 			pool_tick(POOL_ZERO, g_nzd);
-			pool_tick(POOL_PANEL, g_panel_count);
 			PMARK(7);
 			EntityTickAll();
 			EntityExecuteAllLinks();
@@ -7599,42 +7658,29 @@ int AGT_EntryPoint()
 			}
 
 			PMARK(15);
-			// view 1: cockpit panel (static map, sprites for the counters). Its sprites rarely change, and restoring
-			// and drawing them costs about half a VBL: done only for the two frames (both buffers) after a change
-			static u16 s_panel_sig = 0xffff;
-			static s16 s_panel_age = 0;
-			{
-				u16 sig = (u16)(g_panel_count * 131 + g_zero_kills);
-				for (s16 i = 0; i < g_panel_count; i++)
-					sig = (u16)(((sig << 3) | (sig >> 13)) ^ (g_panel[i].frame << 7) ^ (g_panel[i].x * 3) ^ (g_panel[i].y << 11));
-				if (sig != s_panel_sig || ++s_panel_age >= 128) { s_panel_sig = sig; s_panel_age = 0; g_panel_dirty = 2; }
-			}
-			EntitySelectViewport(s_pe_panelview);
+			// view 1: cockpit panel (static map; counters, gauges and kill tally drawn straight in, only what changed)
+			if (g_panel_dirty) { s_pforce[0] = s_pforce[1] = true; g_panel_dirty = 0; }
 			panelworld.select_buffer(buffer_index & 1);
 			panelworld.setpos(PANEL_MAP_X0, 0);
-			if (g_panel_dirty) panelworld.bgrestore();
+			panelworld.bgrestore_flush();				// (the direct draws leave restore records: not used)
 			panelworld.hybrid_fill(false);
 			panelworld.get_context(panelcontext, 0, VIEWPORT_XSIZE, PANEL_YSIZE);
+			if (!s_pclean_ok) panel_clean_take(panelcontext);	// (the first pass: no item drawn yet)
+			u32 pdraw = panel_restore(panelcontext, buffer_index & 1);
+			PMARK(17);
 			fpv_draw(panelcontext);
 			PMARK(16);
-			if (g_panel_dirty)
+			if (pdraw)
 			{
-			g_panel_dirty--;
-			{	// kill tally (hud_draw_kill_tally 1f200): one small Zero per kill, two rows of 7 at hires (534,19) /
-				// (534,25), 13 hires px apart. Drawn directly (AGT's entity pool of 192 is nearly used up)
-				s16 kills = g_zero_kills > 99 ? 99 : g_zero_kills;
-				if (kills > 0)
-				{
-					AGT_BLiT_IMSprInit();
-					for (s16 i = 0; i < 7 && i < kills; i++)
-						AGT_BLiT_IMSprDrawClipped(&panelcontext, panel_asset.get(), 47, PANEL_MAP_X0 + 265 + (i * 13) / 2, 17);
-					for (s16 i = 0; i < 7 && i < kills - 7; i++)
-						AGT_BLiT_IMSprDrawClipped(&panelcontext, panel_asset.get(), 47, PANEL_MAP_X0 + 265 + (i * 13) / 2, 23);
-				}
+				AGT_BLiT_IMSprInit();
+				for (s16 k = 0; k < g_panel_count; k++)
+					if (pdraw & (1UL << k))
+						AGT_BLiT_IMSprDrawClipped(&panelcontext, panel_asset.get(), g_panel[k].frame, g_panel[k].x, g_panel[k].y);
+				// IMSPR must not be the last thing drawn in a pass (AGT draw crash): a 16x1 black line (EMX) on the
+				// black frame above the forward view follows
+				AGT_BLiT_EMXSprInit();
+				AGT_BLiT_EMXSprDrawClipped(&panelcontext, sepbar_asset.get(), 1, PANEL_MAP_X0 + 150 - 16, 4);
 			}
-			EntityDrawVisible(&panelcontext);
-			}
-			EntitySelectViewport(s_pe_viewport);
 
 			g_tk_addr = 0;								// (ticker: not while its values change)
 			g_tk_fine = s_tk_fine; g_tk_pitch = s_tk_pitch; g_tk_slot = buffer_index & 1;
@@ -7734,15 +7780,6 @@ int AGT_EntryPoint()
 void sepbar_fntick(entity_t *_pself)
 {
 	entity_t &self = *_pself;
-	if (self.counter == 10)
-	{
-		// panel pass tail: a 16x1 black line on the black frame above the centre screen (panel map x 150, line 4).
-		// The panel's IMSPR sprites must not be the last thing drawn in a pass (AGT draw crash).
-		self.rx = PANEL_MAP_X0 + 150 - 16;
-		self.ry = 4;
-		self.frame = 1;
-		return;
-	}
 	self.rx = g_cam_x + self.counter * 32;
 	self.ry = g_cam_y + PF_H - SEP_H;
 	self.frame = 0;			// solid index 11 = black in the panel palette (RFILL crashed on the real STE)
@@ -7764,7 +7801,6 @@ entitydef_t entity_dictionary[EntityType_MAX_] =
 	{ &soldier_fntick,0,0,0,					{0},{0},{0},{0},0,0,0,0,		0,0,			0,0,0,0,			EntityDraw_NONE,EntityLayer_1,		EntityFlag_SPATIAL,	0 },
 	{ &gun_fntick,0,0,0,						{0},{0},{0},{0},0,0,0,0,		0,0,			0,0,0,0,			EntityDraw_NONE,EntityLayer_1,		EntityFlag_SPATIAL,	0 },
 	{ &weapon_fntick,0,0,0,						{0},{0},{0},{0},0,0,0,0,		0,0,			0,0,0,0,			EntityDraw_NONE,EntityLayer_1,		EntityFlag_TICKED|EntityFlag_SPATIAL,	0 },
-	{ &panel_fntick,0,0,0,						{0},{0},{0},{0},0,0,0,0,		0,0,			0,0,0,0,			EntityDraw_NONE,EntityLayer_1,		EntityFlag_SPATIAL,	0 },
 	{ &mini_fntick,0,0,0,						{0},{0},{0},{0},0,0,0,0,		0,0,			0,0,0,0,			EntityDraw_NONE,EntityLayer_1,		EntityFlag_TICKED|EntityFlag_SPATIAL,	0 },
 	{ &sepbar_fntick,0,0,0,						{0},{0},{0},{0},0,0,0,0,		0,0,			0,0,0,0,			EntityDraw_EMXSPR,EntityLayer_3,		EntityFlag_TICKED|EntityFlag_SPATIAL,	0 },
 	{ &zero_fntick,0,0,0,						{0},{0},{0},{0},0,0,0,0,		0,0,			0,0,0,0,			EntityDraw_NONE,EntityLayer_1,		EntityFlag_SPATIAL,	0 },

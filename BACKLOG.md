@@ -28,8 +28,10 @@ What is still open. Things that are done are not listed.
   mixtest`), a carrier bob step copies only the tiles that change, the soldier scans, score digits and random
   numbers are cheaper, and the sound lead no longer grows after a single late frame. Frames over 3 VBLs in the six
   scripted runs in Hatari: 5758 before, 1743 after (sortie 264 to 90, views 360 to 185, combat 790 to 460, crashes
-  645 to 401, maps 1609 to 516, soak 1090 to 91). To check on the STE and the Mega STE: the run logs, and that the
-  sound is unchanged.
+  645 to 401, maps 1609 to 516, soak 1090 to 91). Run 1 on the Mega STE: 96 late frames (1.0.1: 264), the same
+  events as Hatari. 1.0.3: the panel redraws only the items that changed (a gauge needle, a digit, a lamp) instead of
+  all of them: 1581 in the six runs (sortie 76, views 185, combat 405, crashes 380, maps 472, soak 63). To check on
+  the STE and the Mega STE: the run logs, and that the sound is unchanged.
 
 ## Known issues
 
@@ -125,7 +127,8 @@ original is 631 KB on its 880 KB disk.
 about 2.0 VBLs on the deck and over the sea and 2.3 over a busy map (m); the rest is spare. Its biggest parts: the
 sound mix 0.3 VBL with two voices playing (four voices: about 0.25 VBL for every VBL of sound), the sprites 0.3 to
 0.45, the tile refill 0.25 to 0.35 (waves; a carrier bob step adds up to 0.7 for two frames), the per-frame effects
-0.1 to 0.3, the entity tick 0.22, the forward view 0.1. Frames still go late where several of these peak together:
+0.1 to 0.3, the entity tick 0.22, the forward view 0.1, the panel 0.02 (0.1 to 0.15 in a frame where an item
+changes). Frames still go late where several of these peak together:
 a bob step during the take-off roll, a ship sinking with four sounds, the later maps' ships and guns. Mixing at
 6258 Hz would halve the sound's share but spoil the gun and splash samples (17 and 10 kHz).
 
