@@ -49,7 +49,8 @@ What is still open. Things that are done are not listed.
   colour is set per line by Timer B; the VBL ran, since a key ended it). After a second the scroller now checks
   both interrupts: without Timer B the text shows in white without the fade on a dark blue background, without its
   VBL call the loop steps it itself on dark red. All three cases checked in Hatari (two by switching an interrupt
-  off). To see on the Mega STE: which background shows, and why Timer B does not run there.
+  off). Mega STE with 1.0.5+cced96f from the cartridge: the text showed normally with its fade (black background:
+  both interrupts ran), so the earlier black screens (twice, 1.0.4) do not happen every time; cause not known.
 
 ## Known issues
 
