@@ -100,6 +100,10 @@ shifted. `FILE*` is now a small record (handle, path, position, size) instead of
 forward. On drives where `Fseek()` works nothing changes. The fault is described in
 [sidecartridge/fseek-issue.md](sidecartridge/fseek-issue.md), with a test program.
 
+The same drive keeps the folder of every `Fsfirst()` that found something open until an `Fsnext()` reports the
+end, and frees nothing when the program ends; after enough of them `Fopen()` fails. `zl_filesize()` runs its search
+to the end.
+
 ### A set of files read as one block
 `libcxx/zerolibc.cpp`: `g_zl_bundle`.
 

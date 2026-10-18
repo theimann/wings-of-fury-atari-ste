@@ -326,13 +326,18 @@ extern long g_zl_arch_pos;
 extern const char *g_zl_arch_path;
 extern "C" long zl_archive_find(const char *_name, long *_size);
 
+// An Fsfirst that found something is run to its end: the cartridge's drive keeps the search's folder open until
+// Fsnext reports the end, and nothing is freed when the program ends (SidecarTridge fault G4)
+static void fs_end() { while (Fsnext() == 0) { } }
 static s32 file_size(const char *_name)
 {
 	long size = 0;
 	if (zl_archive_find(_name, &size) >= 0) return (s32)size;
 	_DTA *d = (_DTA *)Fgetdta();
 	if (Fsfirst(_name, 0) != 0) return 0;
-	return d->dta_size;
+	s32 n = d->dta_size;
+	fs_end();
+	return n;
 }
 
 // packed disk (tools/pack_disk.py): a wrapped asset's header gives its unpacked size (prefix 'wrap', code, packed
@@ -5032,13 +5037,16 @@ COLD static bool fs_has(const char *_name, bool _dir)
 {
 	_DTA *d = (_DTA *)Fgetdta();
 	if (Fsfirst(_name, _dir ? 0x10 : 0) != 0) return false;
-	return _dir ? (d->dta_attribute & 0x10) != 0 : true;
+	bool ok = _dir ? (d->dta_attribute & 0x10) != 0 : true;
+	fs_end();
+	return ok;
 }
 COLD static void arch_open()
 {
 	_DTA *d = (_DTA *)Fgetdta();
 	if (Fsfirst(g_arch_path, 0) != 0) return;
 	g_arch_found = d->dta_size;
+	fs_end();
 	g_arch_state = -1;
 	s32 h = Fopen(g_arch_path, 0);
 	if (h < 0) return;
@@ -5086,14 +5094,14 @@ COLD static void dirs_init()
 	_DTA *d = (_DTA *)Fgetdta();
 	if (fs_has("WOF.DAT", false)) { }
 	else if (fs_has("..\\WOF.DAT", false)) { if (Dsetpath("..") != 0) return; }	// (the floppy: the program is in AUTO)
-	else if (Fsfirst("DATA", 0x10) != 0 || !(d->dta_attribute & 0x10))
+	else if (!fs_has("DATA", true))
 	{
 		// not here: one folder up? The floppy has the program in AUTO and DATA beside it; started by hand from the
 		// desktop (a machine with a hard disk boots from that, the floppy's AUTO folder is not run) we are in AUTO.
 		// Only looked for, nothing changed, unless it is there: with the files beside the program (the developer
 		// layout, /WOF on the cartridges) the folder must stay as it is, and the cartridge's GEMDRIVE gets no path
 		// calls it did not get before (changing to ".." and back left a black screen on the Mega STE)
-		if (Fsfirst("..\\DATA", 0x10) != 0 || !(d->dta_attribute & 0x10)) return;
+		if (!fs_has("..\\DATA", true)) return;
 		if (Dsetpath("..") != 0) return;
 	}
 	char path[80];
