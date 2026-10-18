@@ -62,20 +62,6 @@ What is still open. Things that are done are not listed.
   original's behaviour; if it was a fighter in a later mission, the case has to be found (turning player, two
   planes and the attack queue, a plane coming head-on).
 
-- **Garbled desktop after Ctrl+Q** (P2, seen on a Mega STE with 1.0.0+395b65c, booted from the floppy image on a
-  Gotek): after Ctrl+Q the desktop comes back with a pink tint and a doubled picture (menu text and icons appear
-  twice, shifted sideways); the mouse pointer still moves. An earlier report from the same machine, started from
-  the cartridge, was a white screen with garbled letters and a hang. Not reproduced in Hatari: floppy with TOS 1.62
-  and TOS 2.06, a subfolder, and from the desktop under HDDRIVER all return to a clean desktop. To look at: what the
-  exit leaves in the STE's video registers on the real machine (horizontal scroll `$ff8265`, line width `$ff820f`,
-  the palette, the resolution against the one TOS assumes), the order and the moment of those writes (in the
-  vertical blank or not), and whether a timer of the display code can still fire after the vectors are restored.
-  Seen again 2026-10-18 on the Mega STE (1.0.5, from the cartridge, Ctrl+Q): the runner's text came back with each
-  letter in offset grey copies, still (no flicker). Suspect: the STE's low byte of the screen address
-  (`$ff820d`), which the game's scrolling sets and nothing reset. Since 1.0.5+c330419 the exit sets all three
-  bytes to TOS's screen (`Logbase`) in the vertical blank; the run build logs the display registers after the exit
-  (`EXITVID`). Hatari: clean desktop, registers as expected. To confirm on the Mega STE.
-
 ## Differences from the Amiga still open
 
 - **Enemy ships don't bob** on the waves. The original (measured in vAmiga, map g's ship): the whole
