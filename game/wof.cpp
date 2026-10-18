@@ -6606,6 +6606,13 @@ COLD static void tos_screen_back()
 	Setscreen(-1L, -1L, g_tos_rez);
 	Vsync();
 	*(volatile u8 *)0xffff8260L = (u8)g_tos_rez;
+	{	// the display starts where TOS writes (_v_bas_ad): on the STE also the low byte, which the game's scrolling
+		// sets and TOS does not reset (the desktop came back with each letter in offset grey copies, Mega STE)
+		u32 b = (u32)Logbase();
+		*(volatile u8 *)0xffff8201L = (u8)(b >> 16);
+		*(volatile u8 *)0xffff8203L = (u8)(b >> 8);
+		if (bSTE) *(volatile u8 *)0xffff820dL = (u8)b;
+	}
 	if (bSTE)
 	{
 		*(volatile u8 *)0xffff820fL = 0;
@@ -7818,8 +7825,21 @@ int AGT_EntryPoint()
 	}
 
 	machinestate.restore();
-	dirs_exit();
+#if defined(WOF_RUNLOG)
+	// the display state the program leaves behind (written to the log once more below)
+	u32 xb = (u32)Logbase();
+#endif
 	tos_screen_back();
+#if defined(WOF_RUNLOG)
+	Vsync();
+	dbg_s("EXITVID log="); dbg_h(xb);
+	dbg_s(" base="); dbg_h(((u32)*(volatile u8 *)0xffff8201L << 16) | ((u32)*(volatile u8 *)0xffff8203L << 8) | *(volatile u8 *)0xffff820dL);
+	dbg_s(" rez="); dbg_h(*(volatile u8 *)0xffff8260L); dbg_s(" lw="); dbg_h(*(volatile u8 *)0xffff820fL);
+	dbg_s(" hs="); dbg_h(*(volatile u8 *)0xffff8265L); dbg_s(" pal0="); dbg_h(*(volatile u16 *)0xffff8240L);
+	dbg_s(" pal1="); dbg_h(*(volatile u16 *)0xffff8242L); dbg_s("\n");
+	log_write();
+#endif
+	dirs_exit();
 	Cconws("\033E");
 	wof_mouse_show();
 	return 0;
