@@ -41,6 +41,10 @@ What is still open. Things that are done are not listed.
   ST original of Super Cars II measures -18 dB at the same gain: a soft limiter could add 3 to 6 dB. Still to
   check on the STE.
 
+- **Wreck on the bobbing deck** (P3, 1.0.5): a wreck lying on the own carrier's deck is drawn with the deck's bob as
+  drawn in that frame, like a plane taxiing (it trailed each bob step by a logic tick). Deck tests pass in Hatari;
+  the lag itself only shows between ticks, so to confirm on a machine.
+
 ## Known issues
 
 - **No pull-up while firing in a dive** (P0, seen on a Mega STE with 1.0.4+876eeb8, keyboard): diving with the
@@ -70,10 +74,6 @@ What is still open. Things that are done are not listed.
   exit leaves in the STE's video registers on the real machine (horizontal scroll `$ff8265`, line width `$ff820f`,
   the palette, the resolution against the one TOS assumes), the order and the moment of those writes (in the
   vertical blank or not), and whether a timer of the display code can still fire after the vectors are restored.
-
-- **Crashed plane on the bobbing deck** (P3, seen on a Mega STE with 1.0.3+c6fd482): after a crash on the
-  carrier's deck the plane did not move properly with the deck as it bobbed. To look at: whether the wreck's y follows
-  the carrier's bob step like a parked or landed plane, and what the original does there.
 
 - **Intro text black on the Mega STE** (seen with 1.0.4+876eeb8 from the cartridge): the scrolling text before the
   publisher's logo (medium resolution, grey ramp set line by line from the VBL queue and Timer B, `intro_scroller`)

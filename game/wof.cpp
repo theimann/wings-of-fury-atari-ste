@@ -659,6 +659,14 @@ static inline u16 map_cell(s32 _x)
 }
 
 static inline s16 cell_surface(u16 _c) { return _c & 3; }	// 0 sea, 1 carrier, 2 island
+static inline bool own_deck_cell(s32 _x)	// a cell of the own carrier's deck (obj_height: 0x21 - bob - elevator - sink)
+{
+	s32 i = _x >> 3;
+	if (i < 0) i = 0;
+	if (i >= MAP_CELLS) i = MAP_CELLS - 1;
+	s16 t = (c_map[i] >> 2) & 0x1ff;
+	return (t >= 0x1f && t <= 0x27) || t == 0x9f;
+}
 
 // object height FUN_00015710 (player.md 8 / table at 0x25712: tre1,tre2,tre3,cama,dugo,huta,pill)
 static s16 carrier_sink_px();			// how far the own carrier's picture has gone down
@@ -7433,9 +7441,10 @@ int AGT_EntryPoint()
 			s32 ix = prev_x + (((P.x - prev_x) * behind) >> 2);
 			s32 iy = prev_y + (((s32)(P.y - prev_y) * behind) >> 2);
 			g_plane_ix = (s16)(ix + MARGIN);
-			if (P.state == PS_DECK || P.state == PS_ARRESTED)
+			if (P.state == PS_DECK || P.state == PS_ARRESTED || (P.state == PS_WRECK && own_deck_cell(P.x)))
 			{
 				// on deck y = 0x21 - bob: interpolate the bob-free height, then apply the bob of the tiles as drawn
+				// (also a wreck lying on the deck: it trailed a bob step by a tick)
 				// (interpolating y itself undid the bob for up to a tick after every second bob step)
 				s32 a = prev_y + g_deck_bob_prev + g_deck_elev_prev, b = P.y + g_deck_bob_logic + g_deck_elev_logic;
 				iy = a + (((b - a) * behind) >> 2) - g_bob_drawn - g_elev;
