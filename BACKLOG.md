@@ -45,6 +45,12 @@ What is still open. Things that are done are not listed.
   drawn in that frame, like a plane taxiing (it trailed each bob step by a logic tick). Deck tests pass in Hatari;
   the lag itself only shows between ticks, so to confirm on a machine.
 
+- **Intro text on the Mega STE** (1.0.5): the scrolling text before the publisher's logo stayed black there (its
+  colour is set per line by Timer B; the VBL ran, since a key ended it). After a second the scroller now checks
+  both interrupts: without Timer B the text shows in white without the fade on a dark blue background, without its
+  VBL call the loop steps it itself on dark red. All three cases checked in Hatari (two by switching an interrupt
+  off). To see on the Mega STE: which background shows, and why Timer B does not run there.
+
 ## Known issues
 
 - **No pull-up while firing in a dive** (P0, seen on a Mega STE with 1.0.4+876eeb8, keyboard): diving with the
@@ -74,10 +80,6 @@ What is still open. Things that are done are not listed.
   exit leaves in the STE's video registers on the real machine (horizontal scroll `$ff8265`, line width `$ff820f`,
   the palette, the resolution against the one TOS assumes), the order and the moment of those writes (in the
   vertical blank or not), and whether a timer of the display code can still fire after the vectors are restored.
-
-- **Intro text black on the Mega STE** (seen with 1.0.4+876eeb8 from the cartridge): the scrolling text before the
-  publisher's logo (medium resolution, grey ramp set line by line from the VBL queue and Timer B, `intro_scroller`)
-  shows a black screen for its whole length; the music plays and a key goes on to the logo. In Hatari the text shows.
 
 ## Differences from the Amiga still open
 

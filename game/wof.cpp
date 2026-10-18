@@ -6261,7 +6261,7 @@ COLD static void intro_icon(bool _on)				// the disk icon on the TOS screen (the
 // line that sets colour 1. The scrolling is the STE's video base address moving down a line through a buffer that
 // holds the picture twice (nothing is copied but the new text line). A key ends it.
 static u16 s_intro_ramp[204];						// colour 1 per display line (STE colour words)
-extern "C" { const u16 * volatile s_intro_ptr = 0; void intro_timer_b(); }
+extern "C" { const u16 * volatile s_intro_ptr = 0; volatile u16 s_intro_tb = 0; void intro_timer_b(); }	// (s_intro_tb: Timer B calls)
 __asm__(											// per display line: the next colour (kept short: 200 calls per frame)
 	"	.text\n"
 	"	.even\n"
@@ -6271,6 +6271,7 @@ __asm__(											// per display line: the next colour (kept short: 200 calls p
 	"	move.l	_s_intro_ptr,%a0\n"
 	"	move.w	(%a0)+,0xffff8242:w\n"
 	"	move.l	%a0,_s_intro_ptr\n"
+	"	addq.w	#1,_s_intro_tb\n"
 	"	move.l	(%sp)+,%a0\n"
 	"	move.b	#0xfe,0xfffffa0f:w\n"			// end of interrupt (ISRA bit 0)
 	"	rte\n");
@@ -6281,8 +6282,11 @@ static volatile s16 s_intro_step = 0;				// steps made
 static volatile bool s_intro_go = false;
 static u32 s_intro_ring = 0;
 static s16 s_intro_top = 0, s_intro_div = 0;
+static volatile u16 s_intro_vb = 0;					// calls of intro_vbl (with s_intro_tb: the check after a second)
+static volatile u16 s_intro_flat = 0;				// no Timer B on this machine: colour 1 fixed (no fade), no line count
 static void intro_vbl()								// in TOS's VBL queue: restart the line count, set the scroll position
 {
+	s_intro_vb++;
 	if (s_intro_go && ++s_intro_div >= 4)
 	{
 		s_intro_div = 0;
@@ -6294,10 +6298,34 @@ static void intro_vbl()								// in TOS's VBL queue: restart the line count, se
 	*(volatile u8 *)0xffff8203L = (u8)(s_intro_base >> 8);
 	*(volatile u8 *)0xffff820dL = (u8)s_intro_base;	// (STE: the low byte last)
 	*(volatile u8 *)0xfffffa1bL = 0;
+	if (s_intro_flat) { *(volatile u16 *)0xffff8242L = s_intro_flat; return; }
 	*(volatile u16 *)0xffff8242L = s_intro_ramp[0];
 	s_intro_ptr = s_intro_ramp + 1;
 	*(volatile u8 *)0xfffffa21L = 1;
 	*(volatile u8 *)0xfffffa1bL = 8;				// event count: one interrupt per displayed line
+}
+// The check a second into the scroller (see intro_scroller)
+static volatile u32 * const s_hz200 = (volatile u32 *)0x4baL;	// (not the VBL clock: it stands still if the VBL is the fault)
+static u32 s_ic_t = 0, s_ic_next = 0;
+static bool s_ic_done = false, s_ic_novbl = false;
+COLD static void intro_check()
+{
+	if (!s_ic_done && (s32)(*s_hz200 - s_ic_t) >= 0)
+	{
+		s_ic_done = true;
+		if (s_intro_vb == 0)
+		{
+			s_ic_novbl = true;								// the loop calls intro_vbl itself from now on
+			s_ic_next = *s_hz200;
+			*(volatile u16 *)0xffff8240L = 0x300;
+		}
+		else if (s_intro_tb == 0)
+		{
+			s_intro_flat = 0xfff;
+			*(volatile u16 *)0xffff8240L = 0x003;
+		}
+	}
+	if (s_ic_novbl && (s32)(*s_hz200 - s_ic_next) >= 0) { s_ic_next += 4; intro_vbl(); }	// 4 x 5 ms: one 50 Hz frame
 }
 COLD static void intro_ramp(s16 _n)						// FUN_17d4e: line L < n: grey L; middle: n - 1; lines 181..196: 196 - L
 {
@@ -6362,8 +6390,15 @@ COLD static void intro_scroller()
 	s16 c = 0, lines = 0, left = 210, fade = 0, iter = 0;
 	const u8 *line = txt;
 	s_intro_go = true;
+	// On the Mega STE the text stayed black (2026-10-18; Hatari shows it): Timer B did not run there (the VBL did:
+	// a key ended the scroller, which needs the scroll steps). After a second a missing interrupt is replaced (see
+	// intro_check): no Timer B -> colour 1 fixed, no fade, background dark blue; no VBL queue call -> the loop calls
+	// intro_vbl itself, background dark red (the colour says which)
+	s_intro_tb = 0; s_intro_vb = 0; s_intro_flat = 0;
+	s_ic_t = *s_hz200 + 200; s_ic_done = false; s_ic_novbl = false;
 	while (left >= 0 || fade > 0)
 	{
+		intro_check();
 		if (Bconstat(2)) { Bconin(2); break; }			// a key or fire ends the scroller only (the pictures follow)
 		if (intro_fire()) break;
 		if (left < 0)									// fade out: 2 frames per step
@@ -6429,7 +6464,7 @@ COLD static void intro_scroller()
 		qmemclr(ring + (s32)(top + IH) * 160, 160);
 		if (++top == IH) top = 0;
 		iter++;											// (the VBL shows this step when its turn has come)
-		while ((s16)(s_intro_step - iter) < 0) { }
+		while ((s16)(s_intro_step - iter) < 0) intro_check();
 		left--;
 		if (++c == 210) c = 0;
 		if (left < 0) { fade = 16; s_intro_go = false; next = *vbclock; }
