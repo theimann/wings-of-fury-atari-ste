@@ -4082,7 +4082,11 @@ static void logic_tick(u8 in)
 		break;
 
 	case PS_DECK:
-		if (g_phase == 1) { menu_tick(in); deck_update(0); }	// below deck: the weapon menu takes the input
+		if (g_phase == 1)									// below deck: the weapon menu takes the input (also the cursor keys)
+		{
+			menu_tick(in | (key_states[ScanCode_UP] ? IN_UP : 0) | (key_states[ScanCode_DOWN] ? IN_DOWN : 0));
+			deck_update(0);
+		}
 		else if (g_phase != 0) deck_update(0);					// riding the elevator (state 0xb): y = deck height
 		else
 		{
@@ -4170,9 +4174,12 @@ static s16 s_fire_down_vbl = 0;			// VBL of the press (valid while s_fire_down)
 static bool s_fire_down = false;		// (a flag: the 16-bit VBL counter is negative half of the time)
 static u8 s_fire_tap = 0;
 
+// Flying is joystick only: the ST keyboard drops some three-key combinations (fire, the direction, up: pulling up
+// out of a dive while firing did nothing). Space is fire only where the plane is not flying (weapon menu, take-off,
+// the restart after a crash); the weapon menu also takes the cursor keys, as on the Amiga (FUN_10258).
 static void poll_fire()
 {
-	bool fire = (joy1 & 0x80) || key_states[ScanCode_SPACE];
+	bool fire = (joy1 & 0x80) || (key_states[ScanCode_SPACE] && P.state != PS_FLYING);
 	if (fire && !s_fire_down)
 	{
 		s_fire_down = true;
@@ -4192,10 +4199,10 @@ static u8 read_input()
 {
 	u8 j = joy1;
 	u8 in = 0;
-	if ((j & 1) || key_states[ScanCode_UP])    in |= g_stick_swap ? IN_DOWN : IN_UP;		// (Ctrl+F swaps up and down)
-	if ((j & 2) || key_states[ScanCode_DOWN])  in |= g_stick_swap ? IN_UP : IN_DOWN;
-	if ((j & 4) || key_states[ScanCode_LEFT])  in |= IN_LEFT;
-	if ((j & 8) || key_states[ScanCode_RIGHT]) in |= IN_RIGHT;
+	if (j & 1) in |= g_stick_swap ? IN_DOWN : IN_UP;		// (Ctrl+F swaps up and down)
+	if (j & 2) in |= g_stick_swap ? IN_UP : IN_DOWN;
+	if (j & 4) in |= IN_LEFT;
+	if (j & 8) in |= IN_RIGHT;
 	if (s_fire_down && (s16)(vbl_now() - s_fire_down_vbl) >= 10) in |= IN_HOLD;
 	if (s_fire_tap) { in |= IN_TAP; s_fire_tap = 0; }
 	return in;
@@ -6197,7 +6204,7 @@ COLD static void help_draw(drawcontext_t &_c)
 		"FIRE TAP          BOMB / ROCKET / TORPEDO",
 		"FIRE HOLD         MACHINE GUN",
 		"ON DECK           UP / DOWN WEAPON, FIRE GO",
-		"KEYS: CURSOR + SPACE",
+		"KEYBOARD: ON DECK ONLY (CURSOR, SPACE)",
 		"ESC               PAUSE",
 		"CTRL+R            BACK TO RANK SELECT",
 		"CTRL+G / CTRL+L   SAVE (ON DECK) / LOAD",

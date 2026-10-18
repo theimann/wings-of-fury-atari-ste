@@ -16,7 +16,7 @@ allows.
  * 2 MB of memory or more
  * Colour monitor or TV
  * Joystick in port 1 (the second
-   port), or the keyboard
+   port)
 
 --------------------------------------
  STARTING
@@ -88,8 +88,12 @@ On the deck:
   Up / down      choose the weapon
   Fire           go
 
-Keyboard instead of the joystick:
-  cursor keys and space.
+Flying needs a joystick. The keyboard
+cannot do it reliably: the ST keyboard
+loses some combinations of three keys
+(fire, a direction and up). On the
+deck, the cursor keys choose the
+weapon and space is fire.
 
 --------------------------------------
  KEYS
@@ -187,7 +191,7 @@ The keys stay active until you quit.
    neither.
  * Not included: the demo mode and
    the cheat key Space (memory
-   figures: Space is fire here).
+   figures).
  * Sound and music use the original
    samples, played at 12.5 kHz.
 

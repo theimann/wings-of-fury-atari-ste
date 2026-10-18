@@ -14,7 +14,7 @@ Atari Game Tools. The graphics, maps, samples and music are converted from the A
 |---|---|
 | Machine | Atari STE or Mega STE, 2 MB of memory or more |
 | Display | colour monitor or TV, 50 Hz |
-| Controls | joystick in port 1, or cursor keys and space |
+| Controls | joystick in port 1 (on the deck also cursor keys and space) |
 | Media | one 720 KB floppy, or a folder on a hard disk |
 
 Ready-made disk image and hard disk version: [atari.love/wof](https://atari.love/wof/). The player's manual is
