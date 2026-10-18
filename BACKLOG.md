@@ -66,6 +66,10 @@ What is still open. Things that are done are not listed.
   carrier's deck the plane did not move properly with the deck as it bobbed. To look at: whether the wreck's y follows
   the carrier's bob step like a parked or landed plane, and what the original does there.
 
+- **Intro text black on the Mega STE** (seen with 1.0.4+876eeb8 from the cartridge): the scrolling text before the
+  publisher's logo (medium resolution, grey ramp set line by line from the VBL queue and Timer B, `intro_scroller`)
+  shows a black screen for its whole length; the music plays and a key goes on to the logo. In Hatari the text shows.
+
 ## Differences from the Amiga still open
 
 - **Enemy ships don't bob** on the waves. The original (measured in vAmiga, map g's ship): the whole
