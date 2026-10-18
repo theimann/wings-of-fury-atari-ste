@@ -4,7 +4,8 @@
 //	The DMA plays a ring buffer in loop mode; snd_mix() (once per drawn frame) fills it up to SND_LEAD bytes ahead
 //	of the play position. Samples keep their native rate; every voice steps through its data at
 //	rate = 3546895 / Amiga period (16.16 step = SND_STEP_K / period).
-//	Volume 0..64 (Amiga), halved for headroom (two voices per side never clip).
+//	Volume 0..64 (Amiga); a voice at 64 plays at full scale like a Paula channel, two voices on one side are added
+//	with saturation (they clip only where both are loud at the same moment).
 // =====================================================================================================================
 
 #include "snd_data.h"
@@ -29,7 +30,7 @@ struct voice_t
 
 static voice_t g_voice[SND_VOICES];
 static s8 g_snd_ring[SND_RING] __attribute__((aligned(4)));
-static s8 g_snd_vt[33][256];					// [vol/2][unsigned sample] -> sample * vol / 128
+static s8 g_snd_vt[33][256];					// [vol/2][unsigned sample] -> sample * vol / 64
 static u16 g_snd_wr = 0;						// next ring byte to mix (multiple of 2)
 static bool g_snd_ok = false;
 static u16 g_snd_resyncs = 0, g_snd_ahead = 0;	// diagnostics: DMA overtook the writer; lead (bytes) at the last mix
@@ -63,7 +64,7 @@ static void snd_init()
 {
 	for (s16 v = 0; v <= 32; v++)
 		for (s16 u = 0; u < 256; u++)
-			g_snd_vt[v][u] = (s8)(((s16)(s8)u * v) / 64);
+			g_snd_vt[v][u] = (s8)(((s16)(s8)u * v) / 32);
 	for (s16 i = 0; i < SND_RING; i++) g_snd_ring[i] = 0;
 	for (s16 i = 0; i < SND_VOICES; i++) g_voice[i].base = 0;
 
@@ -136,7 +137,7 @@ static s16 snd_dist_vol(s16 _x, s16 _px, s16 _palt)
 
 // Inner loops, one stereo side (output bytes at stride 2), 16.16 stepping (word index: signed on the 68000, samples
 // must stay below 32768 bytes), 4x unrolled with fixed output offsets. Each side is written once per segment, so
-// nothing needs clearing first: two voices are added in a register (~42 cycles per voice and sample), one voice is
+// nothing needs clearing first: two voices are added in a register with saturation (~47 cycles per voice and sample), one voice is
 // copied through its volume table (~44), a silent side is cleared (~12). (The former loop added every voice into
 // a cleared ring: ~56 per voice and sample plus the clearing.)
 struct snd_mixp_t
@@ -156,7 +157,10 @@ static snd_mixp_t g_mixp;
 		"	addx.w	%%d4,%%d2\n" \
 		"	move.b	0(%%a3,%%d5.w),%%d0\n" \
 		"	add.b	0(%%a4,%%d0.w),%%d1\n" \
-		"	add.w	%%a0,%%d6\n" \
+		"	bvc.s	9f\n" \
+		"	smi	%%d1\n" \
+		"	eor.b	#0x80,%%d1\n" \
+		"9:	add.w	%%a0,%%d6\n" \
 		"	addx.w	%%d7,%%d5\n" \
 		"	move.b	%%d1," #_off_ "(%%a5)\n"
 static void snd_mix2(snd_mixp_t *_p)
@@ -186,7 +190,7 @@ static void snd_mix2(snd_mixp_t *_p)
 		"	subq.w	#1,(%%sp)\n"
 		"	bpl.s	1b\n"
 		"2:	tst.w	2(%%sp)\n"
-		"	bmi.s	4f\n"
+		"	bmi	4f\n"
 		"3:\n"
 		SND_STEP2(0)
 		SND_STEP2(2)
@@ -194,7 +198,7 @@ static void snd_mix2(snd_mixp_t *_p)
 		SND_STEP2(6)
 		"	addq.l	#8,%%a5\n"
 		"	subq.w	#1,2(%%sp)\n"
-		"	bpl.s	3b\n"
+		"	bpl	3b\n"
 		"4:	addq.l	#4,%%sp\n"
 		"	move.l	(%%sp)+,%%a0\n"
 		"	move.w	%%d2,20(%%a0)\n"
@@ -386,7 +390,8 @@ static void snd_mix_loop_ref(const s8 *_base, u16 &_ipos, u16 &_frac, u16 _istep
 {
 	for (s16 i = 0; i < _n; i++)
 	{
-		_out[2 * i] += _vt[(u8)_base[(s16)_ipos]];
+		s16 o = (s16)_out[2 * i] + _vt[(u8)_base[(s16)_ipos]];
+		_out[2 * i] = (s8)(o > 127 ? 127 : o < -128 ? -128 : o);
 		u32 f = (u32)_frac + _fstep;
 		_frac = (u16)f;
 		_ipos = (u16)(_ipos + _istep + (f >> 16));
