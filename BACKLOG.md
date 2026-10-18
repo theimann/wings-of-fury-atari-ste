@@ -36,8 +36,10 @@ What is still open. Things that are done are not listed.
 - **Louder sound** (1.0.4): every voice at full scale, as a Paula channel at volume 64 (before: half, so that two
   voices on one side could never overflow); two voices on a side are added with saturation. 6 dB louder on average
   (Hatari, `tests/takeoff_fire`: -25.2 to -19.2 dB), no clipped stretches seen there; `make mixtest` checks it
-  against a reference that clips the same way. To check on the STE and the Mega STE: the level against other
-  games, and whether loud moments (gun and explosion together) distort.
+  against a reference that clips the same way. Mega STE (1.0.4+876eeb8, Scarlett line input): no crackle
+  heard; in flight -21 to -24 dB average, peaks at the DMA's full scale (-13.4 dB), 0.01 % of samples there. The
+  ST original of Super Cars II measures -18 dB at the same gain: a soft limiter could add 3 to 6 dB. Still to
+  check on the STE.
 
 ## Known issues
 
