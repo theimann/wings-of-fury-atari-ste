@@ -47,7 +47,10 @@ What is still open. Things that are done are not listed.
   gun firing (space held), the plane does not pull up. To look at: whether the key for pulling up arrives at all
   with space and another arrow key held (the ST keyboard matrix loses some three-key combinations), how the game
   reads keys and joystick together (arrow keys mapped onto the stick bits), whether the same happens with a
-  joystick, and what the original allows while the gun fires.
+  joystick, and what the original allows while the gun fires. Hatari (2026-10-18): the same dive and pull-up (left +
+  up) with and without the gun held give the same altitudes to the pixel, so the game logic pulls up while firing.
+  On the keyboard this is three keys at once (space, an arrow for the direction, up); the ST keyboard drops some
+  three-key combinations, which Hatari does not emulate. To try on the machine: the same with a joystick.
 
 - **A chasing enemy plane does not attack** (deferred, seen in Hatari with 1.0.0+f248896): a plane
   that chases the player gets right behind it but does not fire; it turns round, then follows again, and repeats
