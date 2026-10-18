@@ -33,6 +33,12 @@ What is still open. Things that are done are not listed.
   all of them: 1581 in the six runs (sortie 76, views 185, combat 405, crashes 380, maps 472, soak 63). To check on
   the STE and the Mega STE: the run logs, and that the sound is unchanged.
 
+- **Louder sound** (1.0.4): every voice at full scale, as a Paula channel at volume 64 (before: half, so that two
+  voices on one side could never overflow); two voices on a side are added with saturation. 6 dB louder on average
+  (Hatari, `tests/takeoff_fire`: -25.2 to -19.2 dB), no clipped stretches seen there; `make mixtest` checks it
+  against a reference that clips the same way. To check on the STE and the Mega STE: the level against other
+  games, and whether loud moments (gun and explosion together) distort.
+
 ## Known issues
 
 - **A chasing enemy plane does not attack** (deferred, seen in Hatari with 1.0.0+f248896): a plane
