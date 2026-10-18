@@ -72,7 +72,7 @@ What is still open. Things that are done are not listed.
   vertical blank or not), and whether a timer of the display code can still fire after the vectors are restored.
   Seen again 2026-10-18 on the Mega STE (1.0.5, from the cartridge, Ctrl+Q): the runner's text came back with each
   letter in offset grey copies, still (no flicker). Suspect: the STE's low byte of the screen address
-  (`$ff820d`), which the game's scrolling sets and nothing reset. Since 1.0.5+(this commit) the exit sets all three
+  (`$ff820d`), which the game's scrolling sets and nothing reset. Since 1.0.5+c330419 the exit sets all three
   bytes to TOS's screen (`Logbase`) in the vertical blank; the run build logs the display registers after the exit
   (`EXITVID`). Hatari: clean desktop, registers as expected. To confirm on the Mega STE.
 
