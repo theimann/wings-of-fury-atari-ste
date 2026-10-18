@@ -54,6 +54,10 @@ What is still open. Things that are done are not listed.
   the palette, the resolution against the one TOS assumes), the order and the moment of those writes (in the
   vertical blank or not), and whether a timer of the display code can still fire after the vectors are restored.
 
+- **Crashed plane on the bobbing deck** (P3, seen on a Mega STE with 1.0.3+c6fd482): after a crash on the
+  carrier's deck the plane did not move properly with the deck as it bobbed. To look at: whether the wreck's y follows
+  the carrier's bob step like a parked or landed plane, and what the original does there.
+
 ## Differences from the Amiga still open
 
 - **Enemy ships don't bob** on the waves. The original (measured in vAmiga, map g's ship): the whole
