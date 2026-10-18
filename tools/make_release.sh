@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Every target carries manual/README.TXT beside the program (the floppy: in its root).
+# Every target carries manual/README.TXT and manual/CHANGE.TXT beside the program (the floppy: in its root).
 # Build the release targets of the current source into builds/release-<version+commit>/ (WOF_BUILDS, tools/env.sh):
 #   hatari/      unpacked disk folder (a GEMDOS drive for Hatari; AUTO/WOF.PRG starts at boot).
 #                The same files are what game/deploy_ste.sh uploads to a SidecarTridge cartridge.
@@ -33,7 +33,8 @@ copy_data() {   # disk folder, destination: everything but programs and test fil
 # unpacked
 copy_data $DISK "$OUT/hatari"
 cp -p $DISK/auto/wof.prg "$OUT/hatari/AUTO/WOF.PRG"
-../tools/readme.sh "$OUT/hatari/README.TXT"       # (README.TXT is part of every target)
+../tools/readme.sh "$OUT/hatari/README.TXT"       # (README.TXT and CHANGE.TXT are part of every target)
+cp ../manual/CHANGE.TXT "$OUT/hatari/CHANGE.TXT"
 
 # packed
 "$PY" ../tools/pack_disk.py $DISK $REL 8 | tail -1
@@ -45,12 +46,14 @@ copy_data $REL "$OUT/data_f"
 "$PY" ../tools/make_archive.py "$OUT/data_f" "$OUT/stage/WOF.DAT"
 cp "$PRG" "$OUT/stage/AUTO/WOF.PRG"; rm "$PRG"
 ../tools/readme.sh "$OUT/stage/README.TXT"
+cp ../manual/CHANGE.TXT "$OUT/stage/CHANGE.TXT"
 "$PY" ../tools/make_st.py "$OUT/stage" "$OUT/floppy/wof.st"
 mkdir -p "$OUT/harddisk/WOF"
 copy_data $DISK "$OUT/data_h"
 "$PY" ../tools/make_archive.py "$OUT/data_h" "$OUT/harddisk/WOF/WOF.DAT"
 cp -p $DISK/auto/wof.prg "$OUT/harddisk/WOF/WOF.PRG"
 ../tools/readme.sh "$OUT/harddisk/WOF/README.TXT"
+cp ../manual/CHANGE.TXT "$OUT/harddisk/WOF/CHANGE.TXT"
 # the archives against the recorded ones
 SUMS=../tools/archive.sums
 NOW="harddisk $(shasum -a 256 "$OUT/harddisk/WOF/WOF.DAT" | cut -d' ' -f1)

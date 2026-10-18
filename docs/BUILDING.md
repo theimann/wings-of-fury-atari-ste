@@ -77,11 +77,11 @@ builds `builds/release-<version>+<commit>/` with three targets:
 
 | | |
 |---|---|
-| `floppy/wof.st` | a 720 KB disk image that boots into the game: `AUTO/WOF.PRG` (packed with UPX), `WOF.DAT` (data packed with ZX0), `README.TXT` |
-| `harddisk/WOF/` | `WOF.PRG`, `WOF.DAT` (unpacked data), `README.TXT`, and a zip of it |
+| `floppy/wof.st` | a 720 KB disk image that boots into the game: `AUTO/WOF.PRG` (packed with UPX), `WOF.DAT` (data packed with ZX0), `README.TXT`, `CHANGE.TXT` |
+| `harddisk/WOF/` | `WOF.PRG`, `WOF.DAT` (unpacked data), `README.TXT`, `CHANGE.TXT`, and a zip of it |
 | `hatari/` | a drive folder with `AUTO/WOF.PRG` and the files beside it |
 
-`README.TXT` (from `manual/README.TXT`, with the build's version line) is part of each. The first run packs all
+`README.TXT` (from `manual/README.TXT`, with the build's version line) and `CHANGE.TXT` (`manual/CHANGE.TXT`, the changes against the version before) are part of each. The first run packs all
 level files, which takes about half an hour; the results are cached in `game/.pack_cache/`.
 
 `WOF.DAT` (`tools/make_archive.py`) holds the game's files in one file, in a fixed order and without dates, so it

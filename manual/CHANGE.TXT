@@ -1,0 +1,52 @@
+Wings of Fury STE: changes
+==========================
+
+1.1.0 (against 1.0.1)
+---------------------
+
+Controls
+- Flying needs a joystick. The ST
+  keyboard loses some combinations of
+  three keys: pulling up out of a dive
+  while firing (space, a direction and
+  up) did nothing. On the deck the
+  cursor keys still choose the weapon,
+  space takes off and restarts after a
+  crash; H, Esc and the Ctrl keys are
+  unchanged.
+
+Sound
+- Twice as loud (6 dB more): every
+  sound plays at full level, as on the
+  Amiga. Two loud sounds on one side
+  are capped instead of halved.
+
+Speed
+- Fewer frames that take longer than
+  the game's pace of 3 screen frames:
+  a quicker sound mixer, the carrier's
+  bobbing redraws only what changes,
+  the cockpit panel redraws only the
+  needle, digit or lamp that changed.
+  In the six test flights about a
+  quarter as many late frames as
+  before.
+
+Fixes
+- The desktop comes back clean after
+  Ctrl+Q (it could show each letter
+  twice, shifted, or in wrong
+  colours).
+- A wreck on the carrier's deck moves
+  up and down with the deck.
+- The scrolling text before the
+  Broderbund logo always shows (on a
+  machine where it stayed black: in
+  white on dark blue, without the
+  fade).
+- Quitting returns properly when the
+  game was started by another program.
+- SidecarTridge: the game closes every
+  file search it opens; after many
+  starts the cartridge drive could
+  stop opening files.
