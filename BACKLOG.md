@@ -41,17 +41,6 @@ What is still open. Things that are done are not listed.
   ST original of Super Cars II measures -18 dB at the same gain: a soft limiter could add 3 to 6 dB. Still to
   check on the STE.
 
-- **Wreck on the bobbing deck** (P3, 1.0.5): a wreck lying on the own carrier's deck is drawn with the deck's bob as
-  drawn in that frame, like a plane taxiing (it trailed each bob step by a logic tick). Deck tests pass in Hatari;
-  the lag itself only shows between ticks, so to confirm on a machine.
-
-- **Intro text on the Mega STE** (1.0.5): the scrolling text before the publisher's logo stayed black there (its
-  colour is set per line by Timer B; the VBL ran, since a key ended it). After a second the scroller now checks
-  both interrupts: without Timer B the text shows in white without the fade on a dark blue background, without its
-  VBL call the loop steps it itself on dark red. All three cases checked in Hatari (two by switching an interrupt
-  off). Mega STE with 1.0.5+cced96f from the cartridge: the text showed normally with its fade (black background:
-  both interrupts ran), so the earlier black screens (twice, 1.0.4) do not happen every time; cause not known.
-
 ## Known issues
 
 - **No pull-up while firing in a dive** (P0, seen on a Mega STE with 1.0.4+876eeb8, keyboard): diving with the
