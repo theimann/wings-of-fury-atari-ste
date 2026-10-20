@@ -65,8 +65,8 @@ find "$OUT/harddisk/WOF" -exec touch -t 202210041200 {} +       # (the zip: the 
 (cd "$OUT/harddisk" && zip -q -X -r "wof-$ID$SUF-hd.zip" WOF)
 rm -rf "$OUT/stage" "$OUT/data_f" "$OUT/data_h"
 if [ -z "$SUF" ]; then
-ln -sfn "$OUT" "$WOF_BUILDS/release-current"
-ln -sfn "$OUT/hatari" "$WOF_BUILDS/current"                  # the last release as a drive folder for Hatari
+ln -sfn "$(basename "$OUT")" "$WOF_BUILDS/release-current"
+ln -sfn "$(basename "$OUT")/hatari" "$WOF_BUILDS/current"                  # the last release as a drive folder for Hatari
 fi
 echo "release $ID$SUF -> $OUT"
 du -sk "$OUT/hatari" "$OUT/harddisk/WOF" | awk '{print "  " $1 " KB  " $2}'
