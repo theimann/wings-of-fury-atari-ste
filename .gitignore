@@ -28,3 +28,5 @@ game/hostinfo.txt
 unpacked/
 game/hwtest/
 game/disk1/README.TXT
+# this machine: deploy scripts, hosts, web page (private repo)
+private/
