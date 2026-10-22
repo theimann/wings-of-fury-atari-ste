@@ -6570,7 +6570,7 @@ static s16 g_tos_rez = 0;
 
 // GEM's mouse pointer (started from the desktop: the busy bee) is drawn by TOS's VBL whenever the mouse moves:
 // it is hidden while the start-up screens are up (line-A hide / show, so the count stays balanced for the desktop).
-extern "C" { void wof_mouse_hide(); void wof_mouse_show(); }
+extern "C" { void wof_mouse_hide(); void wof_mouse_show(); u16 *wof_la_vars(); }
 // resolution and palette when the program was started (AGT's start-up switches to medium resolution and blanks
 // colours 1..3 before AGT_EntryPoint: Getrez() and the palette registers show that, not the desktop's)
 extern "C" { extern short g_agt_start_rez; extern unsigned short g_agt_start_pal[16]; }
@@ -6600,6 +6600,17 @@ __asm__(
 	"	rts\n"
 	"	.bss\n"
 	"	.even\n"
+	"	.text\n"
+	"	.even\n"
+	"	.globl	_wof_la_vars\n"
+	"_wof_la_vars:\n"							// the line-A variables (+0 planes, +2 bytes per line)
+	"	movem.l	%d2/%a2,-(%sp)\n"
+	"	.short	0xa000\n"
+	"	move.l	%a0,%d0\n"
+	"	movem.l	(%sp)+,%d2/%a2\n"
+	"	rts\n"
+	"	.bss\n"
+	"	.even\n"
 	"wof_la_contrl:	.space	24\n"
 	"wof_la_intin:	.space	8\n"
 	"	.text\n");
@@ -6608,9 +6619,23 @@ __asm__(
 // resolution, and the engine's own restore puts back what it saw at AGT_EntryPoint: medium, colours 1..3 black
 // (a low resolution desktop came back squeezed into half the screen in wrong colours). The register is written
 // too: Setscreen does not when TOS thinks it is in that resolution already.
+#if defined(WOF_RUNLOG)
+static u16 s_xv_shift[2], s_xv_planes[2];		// TOS's resolution ($44c) and line-A planes before / after (EXITVID)
+#endif
 COLD static void tos_screen_back()
 {
+#if defined(WOF_RUNLOG)
+	s_xv_shift[0] = *(volatile u8 *)0x44cL; s_xv_planes[0] = *wof_la_vars();
+#endif
+	// Setscreen only switches (and sets up TOS's text and line-A variables for the resolution) when it differs from
+	// TOS's own idea ($44c, sshiftmd). AGT's restore can leave those variables at medium while $44c says low: the
+	// runner's text came out with every other letter in single colours (STE, run build). So TOS is told the other
+	// resolution first, which makes the Setscreen a real change.
+	*(volatile u8 *)0x44cL = (u8)((g_tos_rez + 1) & 1);			// (a byte; $44d is another variable)
 	Setscreen(-1L, -1L, g_tos_rez);
+#if defined(WOF_RUNLOG)
+	s_xv_shift[1] = *(volatile u8 *)0x44cL; s_xv_planes[1] = *wof_la_vars();
+#endif
 	Vsync();
 	*(volatile u8 *)0xffff8260L = (u8)g_tos_rez;
 	{	// the display starts where TOS writes (_v_bas_ad): on the STE also the low byte, which the game's scrolling
@@ -7843,7 +7868,9 @@ int AGT_EntryPoint()
 	dbg_s(" base="); dbg_h(((u32)*(volatile u8 *)0xffff8201L << 16) | ((u32)*(volatile u8 *)0xffff8203L << 8) | *(volatile u8 *)0xffff820dL);
 	dbg_s(" rez="); dbg_h(*(volatile u8 *)0xffff8260L); dbg_s(" lw="); dbg_h(*(volatile u8 *)0xffff820fL);
 	dbg_s(" hs="); dbg_h(*(volatile u8 *)0xffff8265L); dbg_s(" pal0="); dbg_h(*(volatile u16 *)0xffff8240L);
-	dbg_s(" pal1="); dbg_h(*(volatile u16 *)0xffff8242L); dbg_s("\n");
+	dbg_s(" pal1="); dbg_h(*(volatile u16 *)0xffff8242L);
+	dbg_s(" shift="); dbg_h(((u32)s_xv_shift[0] << 16) | s_xv_shift[1]);
+	dbg_s(" planes="); dbg_h(((u32)s_xv_planes[0] << 16) | s_xv_planes[1]); dbg_s("\n");
 	log_write();
 #endif
 	dirs_exit();
