@@ -43,6 +43,13 @@ What is still open. Things that are done are not listed.
 
 ## Known issues
 
+- **Runner text garbled after the run build's exit** (STE, 1.1.0+4f0f466, scripted run 1 ending by itself): the
+  runner's "[EXIT]" line shows every other character, in single colours (a 2-plane text layout on the 4-plane
+  screen). The run log's `EXITVID` line right after the exit reads low resolution, screen address = `Logbase`, line
+  width and fine scroll 0. Ctrl+Q in WOF.PRG on the Mega STE gave a clean runner screen (c330419). Suspect: TOS's
+  screen-driver variables left at medium resolution (AGT's restore switches to medium; the run build skips the
+  intro's Setscreen calls). Asked the Atari-Dev session for the known fix.
+
 - **A chasing enemy plane does not attack** (deferred, seen in Hatari with 1.0.0+f248896): a plane
   that chases the player gets right behind it but does not fire; it turns round, then follows again, and repeats
   that cycle. Looked at so far: a Zero from an airfield (map d) behind a plane flying straight and level holds 131 px
