@@ -4543,6 +4543,9 @@ static char s_rp_name[40];
 
 #if defined(WOF_RUNLOG)
 extern "C" char *_crt_basepage;				// (AGT start-up: the command line at +$80)
+// the command line, copied before the first file search: the program's default DTA is the same place (basepage +
+// $80), so the first Fsfirst overwrote it and every run fell back to run 1
+static u8 s_cmdline[128];
 #endif
 static void replay_load()
 {
@@ -4553,7 +4556,7 @@ static void replay_load()
 	static char s_name[24];
 	s16 n = 0;
 	{
-		const u8 *cl = (const u8 *)_crt_basepage + 0x80;
+		const u8 *cl = s_cmdline;
 		s16 len = cl[0] > 126 ? 126 : cl[0];
 		for (s16 i = 1; i <= len; i++)
 			if (cl[i] >= '1' && cl[i] <= '9') { n = cl[i] - '0'; if (i + 1 <= len && cl[i + 1] >= '0' && cl[i + 1] <= '9') n = n * 10 + cl[i + 1] - '0'; break; }
@@ -6962,6 +6965,9 @@ COLD static void tos_screen_back()
 int AGT_EntryPoint()
 {
 	g_tracked_allocation_ += (int)(&end);
+#if defined(WOF_RUNLOG)
+	for (s16 i = 0; i < 128; i++) s_cmdline[i] = (u8)_crt_basepage[0x80 + i];	// (before any Fsfirst: see s_cmdline)
+#endif
 
 	g_tos_rez = g_agt_start_rez;
 	wof_mouse_hide();
