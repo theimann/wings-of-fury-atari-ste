@@ -763,20 +763,24 @@ index 8ab3903..145d05f 100644
  ;	move.b		#displayservice_nickel_dlb_tb-timecritical_pad_tb,tbdr.w	; TimerB DATA: count
  ;	move.b		#8,tbcr.w				; TimerB CTRL: start))
 diff --git a/agtsys/os.c b/agtsys/os.c
-index e90c3d4..77c961b 100644
+index e90c3d4..d758757 100644
 --- a/agtsys/os.c
 +++ b/agtsys/os.c
-@@ -87,6 +87,9 @@ extern void etext();
+@@ -87,6 +87,13 @@ extern void etext();
  
  // ---------------------------------------------------------------------------------------------------------------------
  
 +short g_agt_start_rez = 0;
 +unsigned short g_agt_start_pal[16];
++// (wof) TOS's line-A variables as the program found them, from 0x3a0 below the base to 0x60 above (the negative ones
++// reach about -0x38e): the program's exit can compare them with what it leaves behind
++unsigned char g_agt_start_la[0x400];
++unsigned char *g_agt_la_base = 0;
 +
  // must be called only in supervisor mode, before user entrypoint
  int AGT_EntryPointPre()
  {
-@@ -94,6 +97,13 @@ int AGT_EntryPointPre()
+@@ -94,6 +101,25 @@ int AGT_EntryPointPre()
  	nf_init();
  #endif
  
@@ -786,6 +790,18 @@ index e90c3d4..77c961b 100644
 +		int i;
 +		for (i = 0; i < 16; i++) g_agt_start_pal[i] = ((volatile unsigned short *)0xffff8240L)[i];
 +	}
++
++	{
++		unsigned char *la;
++		int i;
++		__asm volatile(".short 0xa000; move.l %%a0,%0" : "=g"(la) : : "d0", "d1", "d2", "a0", "a1", "a2", "cc");
++		g_agt_la_base = la;
++		for (i = 0; i < 0x400; i++) g_agt_start_la[i] = la[i - 0x3a0];
++	}
++
++	// (wof) in the vertical blank: a resolution change while lines are shown can leave the shifter's plane counter
++	// two words off (the "plane-shift bug"; EmuTOS's Setscreen waits too, TOS 2.06 does not)
++	__asm volatile ("move.w #37,-(%%sp); trap #14; addq.l #2,%%sp" : : : "d0", "d1", "d2", "a0", "a1", "a2", "cc", "memory");
 +
  	// enter medium res/80-column mode for benefit of early init & loading TTY prints on native display
  	__asm volatile 

@@ -164,6 +164,33 @@ runs:
 	[ $$(( $$(wc -c < $(PRODUCT_DISK1)/WOFRUN.PRG) % 2 )) = 0 ] || printf '\0' >> $(PRODUCT_DISK1)/WOFRUN.PRG
 .PHONY: runs
 
+# the game with a live frame profile on an ATW800/2 card's output (Mega STE / TT with the card; the atw-snoop library,
+# github.com/theimann/atw-snoop, path in ATWSNOOP): make atw -> disk1/WOFATW.PRG
+ATWSNOOP ?= ../../atw-snoop/src
+# (the library comes in through snoop_wof.c, which make does not see: a newer atwsnoop.c or .h rebuilds it and relinks)
+atw:
+	@for f in $(ATWSNOOP)/atwsnoop.c $(ATWSNOOP)/atwsnoop.h $(ATWSNOOP)/snoopprog.h; do [ ! -f build_atw/wof.prg ] || [ ! $$f -nt build_atw/wof.prg ] || rm -f build_atw/snoop_wof.o build_atw/wof.prg; done
+	$(MAKE) BUILD_DIR=build_atw WOF_EXTRA_DEFS="-DWOF_ATWSNOOP -I$(abspath $(ATWSNOOP))" PROJECT_SRC_LIST=snoop_wof.c build_atw/wof.prg
+	cp build_atw/wof.prg $(PRODUCT_DISK1)/WOFATW.PRG
+	[ $$(( $$(wc -c < $(PRODUCT_DISK1)/WOFATW.PRG) % 2 )) = 0 ] || printf '\0' >> $(PRODUCT_DISK1)/WOFATW.PRG
+.PHONY: atw
+# SCRIPTED.PRG: plays every RUNS\RUN<n>.TXT with RUNS\RUN.PRG (the run build), one after another, without arguments
+# (wofruns.c; the debug folder's layout: README_DBG.TXT)
+# libcmini (github.com/freemint/libcmini, built): its start-up gives back all memory but the program's own, so the
+# runs get the rest (with MiNTLib's start-up the game hung while setting up). Path in CMINI (tools/env.sh, local.env)
+CMINI ?= ../../libcmini
+wofruns:
+	m68k-atari-mint-gcc -m68000 -O2 -s -nostdlib -I$(CMINI)/include -o $(PRODUCT_DISK1)/SCRIPTED.PRG $(CMINI)/lib/startup.o wofruns.c -L$(CMINI)/lib -lcmini -lgcc
+.PHONY: wofruns
+# the same with the scripted runs and the run log (make runs): make atwrun -> disk1/WOFATWR.PRG; on the card it runs as
+# /WOFRUN/WOFRUN.PRG (deploy_ste.sh --run=<n> --atw), so the scripts and logs stay where they are
+atwrun:
+	@for f in $(ATWSNOOP)/atwsnoop.c $(ATWSNOOP)/atwsnoop.h $(ATWSNOOP)/snoopprog.h; do [ ! -f build_atwrun/wof.prg ] || [ ! $$f -nt build_atwrun/wof.prg ] || rm -f build_atwrun/snoop_wof.o build_atwrun/wof.prg; done
+	$(MAKE) BUILD_DIR=build_atwrun WOF_EXTRA_DEFS="-DWOF_DIAG -DWOF_REPLAY -DWOF_RUNLOG -DWOF_ATWSNOOP -I$(abspath $(ATWSNOOP))" PROJECT_SRC_LIST=snoop_wof.c build_atwrun/wof.prg
+	cp build_atwrun/wof.prg $(PRODUCT_DISK1)/WOFATWR.PRG
+	[ $$(( $$(wc -c < $(PRODUCT_DISK1)/WOFATWR.PRG) % 2 )) = 0 ] || printf '\0' >> $(PRODUCT_DISK1)/WOFATWR.PRG
+.PHONY: atwrun
+
 # the run build with section markers for timing frames in Hatari (tools/hatari_frames.py): make prof -> disk1/WOFPROF.PRG
 prof:
 	$(MAKE) BUILD_DIR=build_prof WOF_EXTRA_DEFS="-DWOF_DIAG -DWOF_REPLAY -DWOF_RUNLOG -DWOF_PROFMARK" build_prof/wof.prg

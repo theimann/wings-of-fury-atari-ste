@@ -12,7 +12,7 @@ Usage: hatari_run.py <run script> <outdir> [--timeout S] [--avi] [--real] [--aft
     debugger commands at the start
   - waits for the run's END line in RUNS/RUN1.LOG, copies the log to <outdir>/run.log and stops its own Hatari
 """
-import os, shutil, subprocess, sys, time
+import os, re, shutil, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DISK = os.path.join(ROOT, 'game', 'disk1')
@@ -100,6 +100,8 @@ def main():
                                 time.sleep(0.3); shutil.copy(os.path.join(shots, got[0]), os.path.join(outdir, 'after.png')); break
                     break
             crash = open(os.path.join(outdir, 'hatari.txt'), errors='replace').read()
+            # (bus errors reading the VME area $A00000-$DFFFFF are the ATW800/2 debug build looking for its card: caught)
+            crash = re.sub(r'.*Bus Error reading at address \$[a-d][0-9a-f]{5},.*', '', crash, flags=re.I)
             if 'Address Error' in crash or 'Bus Error' in crash or 'Illegal' in crash:
                 result = 'crash'; time.sleep(1); break
     finally:

@@ -593,7 +593,18 @@ static void cart_detect()
 	g_cart_quit = *(volatile u32 *)0xFA0000L == 0xABCDEF42L && *(volatile u32 *)0xFA0018L == 0x5445524DL
 		&& (*(volatile u32 *)0xFA0008L >> 24) == 0x08 && *(volatile u32 *)0xFA2800L != 0x603;
 }
-#if defined(WOF_PROFMARK)
+#if defined(WOF_ATWSNOOP)
+// Debug build for a Mega STE (or TT) with an ATW800/2 card: make atw -> disk1/WOFATW.PRG. The card's output shows a live
+// frame profile while the game runs on the ST's own screen: each PMARK(n) takes the time (MFP timer C, 26 us steps),
+// the sections between them are shown per frame as bars and per second as average and worst; frames that took longer
+// than the pacing are logged with the section that overran most. The figures go to the card as raw values (atw-snoop
+// slots: its T425 formats them), so the build costs the game well under a millisecond a frame. Without the card
+// every call returns at once. The library: atw-snoop (atwsnoop.c), path in the Makefile's ATWSNOOP.
+#include "atwsnoop.h"
+static u32 s_atw_t[19];					// the markers' times this frame (snoop_clock counts); [18]: the frame before's marker 0
+static u32 s_atw_seen = 0;				// which markers were passed this frame
+#define PMARK(_n_) do { s_atw_t[_n_] = snoop_clock(); s_atw_seen |= 1UL << (_n_); } while (0)
+#elif defined(WOF_PROFMARK)
 // Section markers for timing in Hatari (make prof, tools/hatari_frames.py): each PMARK(n) calls its own empty
 // function; a tracing breakpoint on it prints the VBL and the cycle within the frame
 template<int N> static void __attribute__((noinline)) pmark() { __asm__ volatile("" ::: "memory"); }
@@ -975,7 +986,7 @@ static void crash_update()
 		{
 			P.attitude_frame = 0; P.pitch_smooth = 0; P.pitch = 0;
 			P.y = wheel_clearance();
-			crash_fx_splash(P.x + P.dir * 8);		// 1b048: at x + dir * 8 (checked against the Amiga 2026-10-08)
+			crash_fx_splash(P.x + P.dir * 8);		// 1b048: at x + dir * 8 (checked against the Amiga)
 		}
 	}
 	else
@@ -1024,7 +1035,7 @@ static void crash_update()
 				// 1b304 passes (x, y) where FUN_10820 wants a cell pointer: the explosion lands off the map (x about
 				// -1200) and is never seen, and its boom has volume 0, which cuts off the crash's boom in this tick.
 				// So a slide on the deck shows the one explosion of the contact and nothing more until the wreck
-				// burns (checked against the Amiga 2026-10-08); on an island the contact call above shows one a tick.
+				// burns (checked against the Amiga); on an island the contact call above shows one a tick.
 				if (g_voice[2].base && g_voice[2].snd == SND_BOOM) snd_stop(2);
 				if (surf == 2) { crash_ground_impact(x0); soldiers_kill((s16)P.x, 8); }		// 1b322: the cell of the tick's start
 			}
@@ -2011,7 +2022,7 @@ static void pillbox_hit(s16 _wx)
 	}
 }
 
-// Pillbox damage in the 1/8 view (checked against the Amiga 2026-10-08): there a pillbox is 4 px wide and 2 high
+// Pillbox damage in the 1/8 view (checked against the Amiga): there a pillbox is 4 px wide and 2 high
 // (8thscale pila..pilp): the bottom row always, the top row without the pixels whose damage bit is set (pixel k from
 // the left: bit 3 - k). Our 1/8 picture is tiles with every pillbox whole, and two pillboxes can share a tile, so a
 // damaged one gets the tile as a copy of its own with those pixels in the sky's colour (as a sinking ship's tiles:
@@ -3459,7 +3470,7 @@ static void rocket_ignite(proj_t &p)
 
 // per-tick update FUN_00010aa6 (weapons_missions.md 2.2): bombs, rockets, torpedoes
 // A running torpedo reaches a ship or the shore (10d7c): the hit counts and sounds (boom, then splash), but nothing
-// is drawn: the Amiga's draw routine leaves a running torpedo before its explosion code (10730; checked 2026-10-08)
+// is drawn: the Amiga's draw routine leaves a running torpedo before its explosion code (10730; checked)
 static void torpedo_hit(proj_t &p, s16 surf, s16 wx)
 {
 	p.surf = surf;
@@ -3747,7 +3758,7 @@ PROF_NOINL static void wave_frame_tick()
 		if (--g_wave_n < 0) g_wave_n = WAVE_PHASES - 1;
 }
 
-// The wave strip under a smoothly sinking ship (checked against the Amiga 2026-10-08): there the waves are drawn
+// The wave strip under a smoothly sinking ship (checked against the Amiga): there the waves are drawn
 // over the ship at the fixed waterline, and their two top pixel rows have gaps between the crests through which the
 // ship's row at the waterline shows: the hull first, later the superstructure, the tower, at last the sky. The strip
 // tiles in the band have the hull as it floats. So while a ship sinks, the strip tiles under it are composed here:
@@ -4169,6 +4180,289 @@ static void logic_tick(u8 in)
 
 // AGT's g_vbl counts DOWN once per VBL; vbl_now() is an up-counting view of it
 static inline s16 vbl_now() { return (s16)(-g_vbl); }
+#if defined(WOF_ATWSNOOP)
+// The debug screen is for performance work (docs/ATW_SCREEN_PLAN.md): the sections of the frame between the profile
+// markers, the frame as a whole, the sound mixer and the entity pool, and a log of the frames over the pacing. Rows
+// 0..29 fit the card's own 80x30 grid; the xVDI desktop's 100x40 gets a longer log.
+// The sections in frame order: from marker c_atw_from[k] to the next one in the list (the last one, the pacing
+// wait, ends at the next frame's marker 0).
+static const s8 c_atw_from[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 17, 16, 14 };
+static const char *const c_atw_name[] = { "input, pages", "logic ticks", "sound mix", "effects advance", "fx_build",
+	"carrier bob, camera", "hud, panel build", "entity tick", "pre-draw", "view set-up", "bgrestore", "hybrid_fill",
+	"overlays", "sprites", "panel restore", "fpv_draw", "panel items, swap", "pacing wait (idle)" };
+enum {
+	ATW_N = 18, ATW_ROW0 = 7,				// the sections' rows
+	ATW_BAR10 = 384,						// snoop_clock counts in 10 ms: a section's full bar
+	ATW_VBL = 768							// snoop_clock counts in a VBL (50 Hz)
+};
+static s16 s_atw_fl = 0;					// the frame just ended, in VBLs (the pacing loop)
+static s16 s_atw_bar[ATW_N], s_atw_now[ATW_N], s_atw_avg[ATW_N], s_atw_worst[ATW_N], s_atw_blame[ATW_N];
+static s16 s_atw_frame, s_atw_vbls, s_atw_fps, s_atw_late, s_atw_late_s, s_atw_busybar, s_atw_busy, s_atw_pct, s_atw_self;
+static s16 s_atw_lead, s_atw_voices, s_atw_resync, s_atw_ents, s_atw_free;
+static s16 s_atw_x, s_atw_y, s_atw_air, s_atw_score, s_atw_state, s_atw_maprow;
+static u32 s_atw_sum[ATW_N], s_atw_max[ATW_N], s_atw_t0;	// this second's sums and worst (counts), the last frame's start
+static s32 s_atw_frames = 0, s_atw_nlate = 0, s_atw_nblame[ATW_N], s_atw_freemem = 0;
+static s16 s_atw_secf = 0, s_atw_secl = 0, s_atw_sec_vbl = 0;
+// 26.04 us a snoop_clock count: x 26 + x / 24 by shifts (a 32-bit division costs the 68000 ~50 us; 18 a frame would
+// break the budget); within 0.02 %
+static inline u32 atw_us(u32 _c) { return (_c << 4) + (_c << 3) + (_c << 1) + (_c >> 5) + (_c >> 7) + (_c >> 9); }
+static u32 s_atw_pct_k = 0;					// busy x this >> 16 = % of the pacing (set once: no division a frame)
+enum { ATW_US = 26042 };					// a decimal slot's scale: snoop_clock counts shown as us (the T425 multiplies)
+// Set once at the start, so that a frame costs per section one subtraction and two stores (the loop was
+// 60 instructions a section, 2.2 ms a frame with the rest): the section's two marker times (index 18 = the frame
+// before's marker 0), the marker bits it needs, and where its bar's and number's raw values go on the card (0 without
+// the T425: snoop_set then)
+static const u32 *s_atw_pa[ATW_N], *s_atw_pb[ATW_N];
+static u32 s_atw_m[ATW_N];
+static volatile long *s_atw_vbar[ATW_N], *s_atw_vnow[ATW_N];
+
+static void atw_start()
+{
+	if (!snoop_init(0)) return;
+	const u8 hd = SNOOP_ATTR(SNOOP_BLACK, SNOOP_CYAN), w = SNOOP_ATTR(SNOOP_WHITE, SNOOP_NAVY), y = SNOOP_ATTR(SNOOP_YELLOW, SNOOP_NAVY),
+		g = SNOOP_ATTR(SNOOP_GREY, SNOOP_NAVY);
+	snoop_cls(SNOOP_NORMAL);
+	snoop_fill(0, 0, snoop_cols, hd, ' ');
+	snoop_puts(1, 0, hd, "Wings of Fury " WOF_VERSION " - frame profile");
+	snoop_puts(1, 1, g, snoop_why);
+	{	// the CPU: a Mega STE's speed and cache ($FFFF8E21: bit 1 16 MHz, bit 0 cache), as found at the start
+		const u8 sp = bMegaSTE ? *(volatile u8 *)0xffff8e21L : 0;
+		snoop_puts(1, 2, g, !bMegaSTE ? "STE, 8 MHz" : (sp & 2) ? ((sp & 1) ? "Mega STE, 16 MHz, cache on"
+			: "Mega STE, 16 MHz, cache off") : "Mega STE, 8 MHz");
+	}
+	s_atw_pct_k = 6553600UL / ((u32)ATW_VBL * g_frame_vbls);
+	snoop_puts(1, 3, SNOOP_NORMAL, "frame           VBLs      fps     late           late this second");
+	snoop_puts(1, 4, SNOOP_NORMAL, "busy                                         us      % of the pacing");
+	snoop_puts(1, 6, y, "section             0 .. 10 ms                now    avg  worst  blame");
+	s_atw_frame = snoop_slot(SNOOP_DEC, 7, 3, w, 8, 0);
+	s_atw_vbls = snoop_slot(SNOOP_DEC, 21, 3, w, 2, 0);
+	s_atw_fps = snoop_slot(SNOOP_DEC, 30, 3, w, 2, 0);
+	s_atw_late = snoop_slot(SNOOP_DEC, 39, 3, w, 6, 0);
+	s_atw_late_s = snoop_slot(SNOOP_DEC, 47, 3, w, 2, 0);
+	s_atw_busybar = snoop_slot(SNOOP_BAR, 6, 4, SNOOP_ATTR(SNOOP_GREEN, SNOOP_NAVY), 32, (s32)ATW_VBL * g_frame_vbls);
+	s_atw_busy = snoop_slot(SNOOP_DEC, 39, 4, w, 6, ATW_US);
+	s_atw_pct = snoop_slot(SNOOP_DEC, 49, 4, w, 3, 0);
+	for (s16 k = 0; k < ATW_N; k++)
+	{
+		const s16 r = ATW_ROW0 + k;
+		const u8 a = k == ATW_N - 1 ? SNOOP_ATTR(SNOOP_DGREY, SNOOP_NAVY) : SNOOP_NORMAL;
+		snoop_puts(1, r, a, c_atw_name[k]);
+		s_atw_bar[k] = snoop_slot(SNOOP_BAR, 21, r, SNOOP_ATTR(SNOOP_GREEN, SNOOP_NAVY), 24, ATW_BAR10);
+		s_atw_now[k] = snoop_slot(SNOOP_DEC, 46, r, a, 6, ATW_US);
+		s_atw_avg[k] = snoop_slot(SNOOP_DEC, 53, r, a, 6, ATW_US);
+		s_atw_worst[k] = snoop_slot(SNOOP_DEC, 60, r, a, 6, ATW_US);
+		s_atw_blame[k] = k < ATW_N - 1 ? snoop_slot(SNOOP_DEC, 67, r, a, 5, 0) : -1;
+	}
+	s16 r = ATW_ROW0 + ATW_N;				// 25: sound and engine, 26: the game
+	snoop_puts(1, r, SNOOP_NORMAL, "sound lead      ms  voices    resyncs       entities    /192  free       KB");
+	s_atw_lead = snoop_slot(SNOOP_DEC, 12, r, w, 4, 0);
+	s_atw_voices = snoop_slot(SNOOP_DEC, 27, r, w, 1, 0);
+	s_atw_resync = snoop_slot(SNOOP_DEC, 37, r, w, 5, 0);
+	s_atw_ents = snoop_slot(SNOOP_DEC, 53, r, w, 3, 0);
+	s_atw_free = snoop_slot(SNOOP_DEC, 67, r, w, 6, 0);
+	r++;
+	snoop_puts(1, r, SNOOP_NORMAL, "map    state     x          alt       airspeed      score");
+	s_atw_maprow = r;
+	s_atw_state = snoop_slot(SNOOP_DEC, 14, r, w, 3, 0);
+	s_atw_x = snoop_slot(SNOOP_DEC, 19, r, w, 7, 0);
+	s_atw_y = snoop_slot(SNOOP_DEC, 32, r, w, 5, 0);
+	s_atw_air = snoop_slot(SNOOP_DEC, 47, r, w, 5, 0);
+	s_atw_score = snoop_slot(SNOOP_DEC, 59, r, w, 8, 0);
+	r++;
+	snoop_puts(1, r, y, "late frames: VBLs, busy, the section furthest over its average  (debug    us)");
+	s_atw_self = snoop_slot(SNOOP_DEC, 71, r, y, 4, ATW_US);
+	snoop_log_area(r + 1, snoop_rows);
+	for (s16 k = 0; k < ATW_N; k++)
+	{
+		const s16 a = c_atw_from[k], b = k + 1 < ATW_N ? c_atw_from[k + 1] : 0;
+		s_atw_pa[k] = &s_atw_t[a == 0 ? 18 : a];
+		s_atw_pb[k] = &s_atw_t[b];
+		s_atw_m[k] = (1UL << a) | (1UL << b);
+		s_atw_vbar[k] = snoop_slotv && s_atw_bar[k] >= 0 ? snoop_slotv + ((s32)s_atw_bar[k] << 2) : 0;
+		s_atw_vnow[k] = snoop_slotv && s_atw_now[k] >= 0 ? snoop_slotv + ((s32)s_atw_now[k] << 2) : 0;
+	}
+}
+
+#if defined(WOF_RUNLOG)
+// Where the 68000 was at each VBL (the debug run build): a stub ahead of the frame interrupt keeps the interrupted PC
+// in a ring; a late frame writes the last six to the run log ("LPC"), tools/atw_late.py names their functions from the
+// build's map (wof.map, with the "entry at=" line of the log for the load address). The stub is put back in front
+// each frame (AGT may set $70 again) and taken out before the machine goes back to TOS.
+extern "C" { u32 g_atw_pcs[16]; u32 *g_atw_pcp = g_atw_pcs; u32 g_atw_oldvbl = 0; void atw_vbl(); }
+__asm__(
+	"	.text\n"
+	"	.even\n"
+	"	.globl	_atw_vbl\n"
+	"_atw_vbl:\n"
+	"	move.l	%a0,-(%sp)\n"
+	"	move.l	_g_atw_pcp,%a0\n"
+	"	move.l	6(%sp),(%a0)+\n"				// (the exception frame: SR at 4, PC at 6 past the saved a0)
+	"	cmp.l	#_g_atw_pcs+64,%a0\n"
+	"	bcs.s	1f\n"
+	"	lea	_g_atw_pcs,%a0\n"
+	"1:	move.l	%a0,_g_atw_pcp\n"
+	"	move.l	(%sp)+,%a0\n"
+	"	move.l	_g_atw_oldvbl,-(%sp)\n"		// on to the handler that was there
+	"	rts\n");
+static void atw_vbl_hook(bool _on)
+{
+	volatile u32 *v = (volatile u32 *)0x70L;
+	if (_on) { if (*v != (u32)atw_vbl) { g_atw_oldvbl = *v; *v = (u32)atw_vbl; } }
+	else if (*v == (u32)atw_vbl) *v = g_atw_oldvbl;
+}
+#endif
+
+static char *atw_cat(char *_d, const char *_s) { while (*_s) *_d++ = *_s++; return _d; }
+
+// at marker 0: the frame before, from its markers; _vbls = its length in VBLs. The numbers go to the card as raw
+// snoop_clock counts (the slots scale them to us); the section and game-state numbers every 4th frame (the bars every
+// frame): a number that changes 17 times a second cannot be read anyway
+static void __attribute__((noinline)) atw_frame(s16 _vbls)
+{
+	if (!snoop_mode) return;
+	const u32 seen = s_atw_seen;
+	s_atw_t[18] = s_atw_t0;					// (the frame before's marker 0, for the first section)
+	const u32 t0 = s_atw_t0;
+	s_atw_t0 = s_atw_t[0];
+	s_atw_seen = 1;							// (marker 0 of the frame that starts now)
+	snoop_frame();
+#if defined(WOF_RUNLOG)
+	atw_vbl_hook(true);
+#endif
+	if (!(seen & 1)) return;				// (the first frame: nothing measured yet)
+	s_atw_frames++;
+	const bool nums = !(s_atw_frames & 3);
+	u32 dk[ATW_N];
+	if (s_atw_vbar[0])
+	{
+		for (s16 k = 0; k < ATW_N; k++)
+		{
+			u32 d = 0;
+			if ((seen & s_atw_m[k]) == s_atw_m[k])
+			{
+				d = *s_atw_pb[k] - *s_atw_pa[k];
+				if ((s32)d < 0) d = 0;		// (a clock that went back: never a wrapped huge figure)
+			}
+			dk[k] = d;
+			*s_atw_vbar[k] = d;
+			if (nums) *s_atw_vnow[k] = d;
+			s_atw_sum[k] += d;
+			if (d > s_atw_max[k]) s_atw_max[k] = d;
+		}
+	}
+	else
+		for (s16 k = 0; k < ATW_N; k++)		// without the T425 (the 68000 draws: snoop_set formats only what changed)
+		{
+			u32 d = 0;
+			if ((seen & s_atw_m[k]) == s_atw_m[k])
+			{
+				d = *s_atw_pb[k] - *s_atw_pa[k];
+				if ((s32)d < 0) d = 0;
+			}
+			dk[k] = d;
+			snoop_set(s_atw_bar[k], d);
+			if (nums) snoop_set(s_atw_now[k], d);
+			s_atw_sum[k] += d;
+			if (d > s_atw_max[k]) s_atw_max[k] = d;
+		}
+	const u32 busy = (seen & (1UL << 14)) ? s_atw_t[14] - t0 : 0;
+	snoop_set(s_atw_busybar, busy);
+	if (nums)
+	{
+		snoop_set(s_atw_frame, s_atw_frames);
+		snoop_set(s_atw_vbls, _vbls);
+		snoop_set(s_atw_busy, busy);
+		// % of the pacing: busy x k >> 16 with one mulu (gcc 4.6 calls __mulsi3 even for 16 x 16 bits)
+		u32 r = busy < 0xffff ? busy : 0xffff;
+		__asm__("mulu.w %1,%0" : "+d"(r) : "d"((u16)s_atw_pct_k));
+		snoop_set(s_atw_pct, r >> 16);
+		snoop_set(s_atw_state, P.state);
+		snoop_set(s_atw_x, P.x);
+		snoop_set(s_atw_y, P.y);
+		snoop_set(s_atw_air, P.airspeed);
+		snoop_set(s_atw_score, g_score);
+	}
+	if (_vbls > g_frame_vbls && _vbls < 50)	// over the pacing (not a page or a load: those stop the frame on purpose)
+	{
+		snoop_set(s_atw_frame, s_atw_frames);
+		snoop_set(s_atw_vbls, _vbls);
+		u32 worst_over = 0;
+		s16 worst_k = -1;
+		if (s_atw_secf)						// the section furthest over this second's average so far
+			for (s16 k = 0; k < ATW_N - 1; k++)
+			{
+				const u32 avg = (s_atw_sum[k] - dk[k]) / (u32)s_atw_secf;
+				if (dk[k] > avg && dk[k] - avg > worst_over) { worst_over = dk[k] - avg; worst_k = k; }
+			}
+		s_atw_nlate++; s_atw_secl++;
+		snoop_set(s_atw_late, s_atw_nlate);
+#if defined(WOF_RUNLOG)
+		// the run log (make atwrun): the whole frame, every section in snoop_clock counts (26.04 us), for the analysis
+		// after the run (tools/atw_late.py)
+		dbg_s("LATE "); log_hexn((u32)_vbls, 2);
+		for (s16 k = 0; k < ATW_N; k++) { log_put(' '); log_hexn(dk[k] < 0xffff ? dk[k] : 0xffff, 4); }
+		dbg_s("\n");
+		dbg_s("LPC");						// the PCs at the last six VBLs, oldest first
+		{
+			const u32 *q = g_atw_pcp;
+			for (s16 i = 6; i > 0; i--)
+			{
+				const u32 *e = q - i; if (e < g_atw_pcs) e += 16;
+				log_put(' '); log_hexn(*e, 6);
+			}
+		}
+		dbg_s("\n");
+#endif
+		char m[100], *p = m;
+		p = snoop_sdec(p, s_atw_frames); p = atw_cat(p, ": ");
+		p = snoop_sdec(p, _vbls); p = atw_cat(p, " VBLs, busy ");
+		p = snoop_sdec(p, (s32)atw_us(busy)); p = atw_cat(p, " us");
+		if (worst_k >= 0)
+		{
+			s_atw_nblame[worst_k]++;
+			snoop_set(s_atw_blame[worst_k], s_atw_nblame[worst_k]);
+			p = atw_cat(atw_cat(p, "; "), c_atw_name[worst_k]); *p++ = ' ';
+			p = snoop_sdec(p, (s32)atw_us(dk[worst_k])); p = atw_cat(p, " us (+");
+			p = snoop_sdec(p, (s32)atw_us(worst_over)); p = atw_cat(p, ")");
+		}
+		*p = 0;
+		snoop_log(_vbls > g_frame_vbls + 1 ? SNOOP_ATTR(SNOOP_RED, SNOOP_NAVY) : SNOOP_ATTR(SNOOP_ORANGE, SNOOP_NAVY), m);
+	}
+	s_atw_secf++;
+	if ((s16)(vbl_now() - s_atw_sec_vbl) >= 50)		// once a second: averages, worst, frames per second, the rest
+	{
+		s_atw_sec_vbl = vbl_now();
+#if defined(WOF_RUNLOG)
+		dbg_s("PROF "); log_hexn((u32)s_atw_secf, 2);	// this second's frames and each section's average (counts)
+		for (s16 k = 0; k < ATW_N; k++) { const u32 a = s_atw_sum[k] / (u32)s_atw_secf; log_put(' '); log_hexn(a < 0xffff ? a : 0xffff, 4); }
+		dbg_s("\n");
+#endif
+		for (s16 k = 0; k < ATW_N; k++)
+		{
+			snoop_set(s_atw_avg[k], s_atw_sum[k] / (u32)s_atw_secf);
+			snoop_set(s_atw_worst[k], s_atw_max[k]);
+			s_atw_sum[k] = s_atw_max[k] = 0;
+		}
+		snoop_set(s_atw_fps, s_atw_secf);
+		snoop_set(s_atw_late_s, s_atw_secl);
+		s_atw_secf = s_atw_secl = 0;
+		s16 nv = 0;
+		for (s16 i = 0; i < SND_VOICES; i++) if (snd_live(g_voice[i])) nv++;
+		snoop_set(s_atw_lead, (s32)g_snd_ahead * 1000 / (SND_RATE * 2));
+		snoop_set(s_atw_voices, nv);
+		snoop_set(s_atw_resync, g_snd_resyncs);
+		snoop_set(s_atw_ents, c_max_entities - entities_freelist_count);
+		snoop_set(s_atw_free, s_atw_freemem >> 10);
+		static s16 s_map_shown = 0;
+		if (g_map_letter != s_map_shown)
+		{
+			s_map_shown = g_map_letter;
+			snoop_putc(5, s_atw_maprow, SNOOP_ATTR(SNOOP_WHITE, SNOOP_NAVY), (u8)g_map_letter);
+		}
+	}
+	snoop_set(s_atw_self, snoop_clock() - s_atw_t[0]);	// what this function cost (the frame's own figures)
+}
+#endif
 
 static s16 s_fire_down_vbl = 0;			// VBL of the press (valid while s_fire_down)
 static bool s_fire_down = false;		// (a flag: the 16-bit VBL counter is negative half of the time)
@@ -4880,6 +5174,9 @@ static bool mission_switch(arena_t &_w, s16 _letter)
 	respawn();
 #if defined(WOF_DIAG)
 	dbg_s("map "); dbg_c((char)_letter); dbg_s(" loaded, free="); dbg_h((u32)Malloc(-1)); dbg_s("\n");
+#endif
+#if defined(WOF_ATWSNOOP)
+	s_atw_freemem = (s32)Malloc(-1);				// (shown on the debug screen: the margin after the level bundle)
 #endif
 	return true;
 }
@@ -6214,10 +6511,25 @@ COLD static void help_draw(drawcontext_t &_c)
 	help_text(_c, 0, n + 2, "H: BACK TO THE GAME");
 }
 
+static u16 s_icon_save[64];
+COLD static void intro_icon(bool _on)				// the disk icon on the TOS screen (the title picture while the game loads)
+{
+	u8 *scr = (u8 *)Physbase();
+	if (!_on) { icon_restore(ICON_TOS(scr), s_icon_save); return; }
+	s16 hi = 0, lo = 0, best = -1, worst = 0x7fff;
+	for (s16 c = 0; c < 16; c++)
+	{
+		s16 v = ste_lum(*(volatile u16 *)(0xffff8240L + 2 * c) & 0xfff);
+		if (v > best) { best = v; hi = c; }
+		if (v < worst) { worst = v; lo = c; }
+	}
+	icon_draw(ICON_TOS(scr), hi, lo, s_icon_save);
+}
+
+#if !defined(WOF_REPLAY)
 // Start-up pictures (FUN_18022: 'broderbund', 'wingstitle', 'creditscreen'; tools/make_pics.py): raw 16-colour
 // low-res screens shown on the plain TOS screen before the engine takes over the display. Any key skips; the
 // original's fades and music are not in yet.
-#if !defined(WOF_REPLAY)
 static bool g_pics_skip = false;
 // joystick fire before the engine starts: TOS hands the keyboard processor's joystick packets to a vector
 extern "C" { volatile u8 s_intro_joy[2] = { 0, 0 }; void intro_joyvec(); }
@@ -6247,20 +6559,6 @@ COLD static bool intro_fire()						// fire pressed since the last call
 	bool f = ((s_intro_joy[0] | s_intro_joy[1]) & 0x80) != 0, hit = f && !s_prev;
 	s_prev = f;
 	return hit;
-}
-static u16 s_icon_save[64];
-COLD static void intro_icon(bool _on)				// the disk icon on the TOS screen (the title picture while the game loads)
-{
-	u8 *scr = (u8 *)Physbase();
-	if (!_on) { icon_restore(ICON_TOS(scr), s_icon_save); return; }
-	s16 hi = 0, lo = 0, best = -1, worst = 0x7fff;
-	for (s16 c = 0; c < 16; c++)
-	{
-		s16 v = ste_lum(*(volatile u16 *)(0xffff8240L + 2 * c) & 0xfff);
-		if (v > best) { best = v; hi = c; }
-		if (v < worst) { worst = v; lo = c; }
-	}
-	icon_draw(ICON_TOS(scr), hi, lo, s_icon_save);
 }
 // Intro text scroller (FUN_17e80, reverse-engineering/notes/frontend.md 1.1): 53 lines in the Amiga's 'newarmyfont', justified to
 // 615 px, scroll up 1 px every 4 frames on a 640x200 screen: ST medium resolution here, text in plane 0. The text
@@ -6368,6 +6666,7 @@ COLD static void intro_scroller()
 	s_intro_base = s_intro_ring = (u32)ring;
 	s_intro_step = 0; s_intro_top = 0; s_intro_div = 0; s_intro_go = false;
 
+	Vsync();											// (resolution changes in the vertical blank: see tos_screen_back)
 	Setscreen(-1L, -1L, 1);								// ST medium resolution
 	Vsync();
 	u16 *scr = (u16 *)Physbase();
@@ -6573,7 +6872,8 @@ static s16 g_tos_rez = 0;
 extern "C" { void wof_mouse_hide(); void wof_mouse_show(); u16 *wof_la_vars(); }
 // resolution and palette when the program was started (AGT's start-up switches to medium resolution and blanks
 // colours 1..3 before AGT_EntryPoint: Getrez() and the palette registers show that, not the desktop's)
-extern "C" { extern short g_agt_start_rez; extern unsigned short g_agt_start_pal[16]; }
+extern "C" { extern short g_agt_start_rez; extern unsigned short g_agt_start_pal[16];
+	extern unsigned char g_agt_start_la[0x400]; extern unsigned char *g_agt_la_base; }	// (line-A at the start: -0x3a0..+0x60)
 __asm__(
 	"	.text\n"
 	"	.even\n"
@@ -6632,6 +6932,12 @@ COLD static void tos_screen_back()
 	// runner's text came out with every other letter in single colours (STE, run build). So TOS is told the other
 	// resolution first, which makes the Setscreen a real change.
 	*(volatile u8 *)0x44cL = (u8)((g_tos_rez + 1) & 1);			// (a byte; $44d is another variable)
+	// Every resolution change waits for the vertical blank first (Vsync before Setscreen), as EmuTOS's Setscreen does
+	// ("to avoid the plane-shift bug on ST"): a change while lines are shown can leave the shifter's plane counter two
+	// words off, and the picture shows each 16-pixel block's planes mixed with the next one's (a copy 16 pixels to the
+	// side in other colours) until a later change happens to put it back. TOS 2.06 does not wait: on the Mega STE it
+	// came and went at random, in the game and on the desktop after it.
+	Vsync();
 	Setscreen(-1L, -1L, g_tos_rez);
 #if defined(WOF_RUNLOG)
 	s_xv_shift[1] = *(volatile u8 *)0x44cL; s_xv_planes[1] = *wof_la_vars();
@@ -6684,9 +6990,10 @@ int AGT_EntryPoint()
 		dbg_s("start, free="); dbg_h((u32)Malloc(-1)); dbg_s("\n");
 		dbg_s("entry at="); dbg_h((u32)&AGT_EntryPoint); dbg_s("\n");	// (maps crash PCs: see _AGT_EntryPoint in build_play/wof.map)
 #endif
-#if !defined(WOF_REPLAY)
+#if !defined(WOF_REPLAY) || defined(WOF_RUNLOG)	// (the run builds show the load screen too: no key needed)
 		{	// black screen with the disk icon while the first files load (messages: white on black)
 			static const u16 c_pal[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xfff };
+			Vsync();						// (resolution changes in the vertical blank: see tos_screen_back)
 			Setscreen(-1L, -1L, 0);
 			Setpalette((void *)c_pal);
 			Cconws("\033E\033f");
@@ -6695,6 +7002,9 @@ int AGT_EntryPoint()
 		}
 #endif
 		cart_detect();
+#if defined(WOF_ATWSNOOP)
+		atw_start();					// (before AGT takes the machine: the card's search times out on the 200 Hz clock)
+#endif
 		dirs_init();
 		{
 			// The data archive: there in full? A copy that broke off shows here instead of in a crash later. With a
@@ -6704,13 +7014,13 @@ int AGT_EntryPoint()
 			if (g_arch_state < 0) bad = "\033E\r\n Wings of Fury STE\r\n\r\n WOF.DAT is incomplete or not\r\n this game's file.\r\n ";
 			if (full)
 			{
-#if !defined(WOF_REPLAY)
+#if !defined(WOF_REPLAY) || defined(WOF_RUNLOG)
 				intro_icon(false);
 #endif
 				Cconws("\033E\r\n Wings of Fury STE\r\n\r\n Checking WOF.DAT...\r\n");
 				if (!arch_verify()) bad = "\r\n WOF.DAT is damaged: its content\r\n does not match its check sum.\r\n ";
 				else { Cconws("\r\n WOF.DAT is complete.\r\n\r\n Press space...\r\n"); Crawcin(); Cconws("\033E"); }
-#if !defined(WOF_REPLAY)
+#if !defined(WOF_REPLAY) || defined(WOF_RUNLOG)
 				if (!bad) intro_icon(true);
 #endif
 			}
@@ -6725,7 +7035,7 @@ int AGT_EntryPoint()
 					for (s32 dv = 100000000L; dv; dv /= 10) if (v[k] >= dv || dv == 1 || on) { *p++ = (char)('0' + v[k] / dv % 10); on = true; }
 				}
 				*p = 0;
-#if !defined(WOF_REPLAY)
+#if !defined(WOF_REPLAY) || defined(WOF_RUNLOG)
 				if (!full) intro_icon(false);
 #endif
 				Cconws(bad);
@@ -6759,7 +7069,7 @@ int AGT_EntryPoint()
 					for (const char *t = k ? " KB\r\n" : " KB, needed: "; *t; ) *p++ = *t++;
 				}
 				*p = 0;
-#if !defined(WOF_REPLAY)
+#if !defined(WOF_REPLAY) || defined(WOF_RUNLOG)
 				intro_icon(false);
 #endif
 				Cconws("\033E\r\n Wings of Fury STE\r\n\r\n Not enough free memory.\r\n ");
@@ -6788,6 +7098,7 @@ int AGT_EntryPoint()
 		mus_play(2);						// FUN_18022: song3 with the scroller, song2 from the publisher's logo on
 		intro_scroller();
 		mus_play(1);
+		Vsync();							// (resolution changes in the vertical blank: see tos_screen_back)
 		Setscreen(-1L, -1L, 0);				// ST low resolution
 		// (and the display hardware itself, in the vertical blank: on real machines started from a floppy or the
 		// hard disk the pictures came up in stripes: half of each line, black columns between. Not reproduced in
@@ -6898,6 +7209,10 @@ int AGT_EntryPoint()
 			return -1;
 		}
 		level_load(g_map_letter);
+#if defined(WOF_REPLAY) && defined(WOF_RUNLOG)
+		intro_icon(false);					// (the run builds: the load screen off, no title or credits)
+		qmemclr((void *)Physbase(), 32000);
+#endif
 #if !defined(WOF_REPLAY)
 		intro_icon(false);
 		{
@@ -7116,6 +7431,9 @@ int AGT_EntryPoint()
 					if (fl > g_rs_maxf && fl < 1000) g_rs_maxf = fl;
 				}
 #endif
+#if defined(WOF_ATWSNOOP)
+				s_atw_fl = (s16)(vbl_now() - s_frame_vbl);
+#endif
 				s_frame_vbl = vbl_now();
 #if defined(WOF_DIAG)
 				g_idle += n;				// idle loop count (CPU headroom)
@@ -7123,6 +7441,9 @@ int AGT_EntryPoint()
 			}
 
 			PMARK(0);
+#if defined(WOF_ATWSNOOP)
+			atw_frame(s_atw_fl);
+#endif
 			poll_fire();
 
 			if (g_session_over && !g_page && !g_loading && !g_map_request)	// game over: name entry if in the best ten, then the table
@@ -7856,7 +8177,13 @@ int AGT_EntryPoint()
 		shift.restore();
 	}
 
+#if defined(WOF_ATWSNOOP) && defined(WOF_RUNLOG)
+	atw_vbl_hook(false);						// (the PC sampler out before the vectors go back to TOS)
+#endif
 	machinestate.restore();
+#if defined(WOF_ATWSNOOP)
+	snoop_exit();
+#endif
 #if defined(WOF_RUNLOG)
 	// the display state the program leaves behind (written to the log once more below)
 	u32 xb = (u32)Logbase();
@@ -7871,6 +8198,19 @@ int AGT_EntryPoint()
 	dbg_s(" pal1="); dbg_h(*(volatile u16 *)0xffff8242L);
 	dbg_s(" shift="); dbg_h(((u32)s_xv_shift[0] << 16) | s_xv_shift[1]);
 	dbg_s(" planes="); dbg_h(((u32)s_xv_planes[0] << 16) | s_xv_planes[1]); dbg_s("\n");
+	if (g_agt_la_base)		// TOS's line-A variables that differ from the start ("LA <offset from the base> <then> <now>")
+	{
+		s16 n = 0;
+		for (s16 i = 0; i < 0x400 && n < 80; i += 2)
+		{
+			const u16 was = (u16)((g_agt_start_la[i] << 8) | g_agt_start_la[i + 1]);
+			const u16 now = *(const u16 *)(g_agt_la_base + i - 0x3a0);
+			if (was == now) continue;
+			s16 o = i - 0x3a0;
+			dbg_s("LA "); if (o < 0) { dbg_s("-"); o = -o; } dbg_h((u32)o); dbg_s(" "); dbg_h(was); dbg_s(" "); dbg_h(now); dbg_s("\n");
+			n++;
+		}
+	}
 	log_write();
 #endif
 	dirs_exit();

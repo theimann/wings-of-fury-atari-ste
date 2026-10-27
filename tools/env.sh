@@ -6,6 +6,7 @@
 #   WOF_BUILDS   builds/ in the repository: where tools/make_release.sh puts the releases
 #   HATARI       hatari on the PATH, else the macOS application
 #   WOF_TOS      the TOS image Hatari boots (no default: TOS 1.62 or 2.06, not part of this repository)
+#   CMINI        libcmini (headers in include/, lib/startup.o, lib/libcmini.a) for SCRIPTED.PRG: ../libcmini
 WOF_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 [ -f "$WOF_ROOT/local.env" ] && . "$WOF_ROOT/local.env"
 : "${AGTROOT:=$WOF_ROOT/../agtools}"
@@ -17,6 +18,7 @@ if [ -z "${PYTHON:-}" ]; then
   else PYTHON=python3; fi
 fi
 : "${WOF_BUILDS:=$WOF_ROOT/builds}"
+: "${CMINI:=$WOF_ROOT/../libcmini}"; export CMINI
 if [ -z "${HATARI:-}" ]; then
   if command -v hatari > /dev/null 2>&1; then HATARI=hatari; else HATARI=/Applications/Hatari.app/Contents/MacOS/hatari; fi
 fi

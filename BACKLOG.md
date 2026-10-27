@@ -50,6 +50,19 @@ What is still open. Things that are done are not listed.
   screen-driver variables left at medium resolution (AGT's restore switches to medium; the run build skips the
   intro's Setscreen calls). Asked the Atari-Dev session for the known fix.
 
+- **Mega STE: picture garbled after a resolution change, at random** (1.1.0 debug builds, also on a
+  CRT, so not the capture): either each 16-pixel block's planes mixed with the next one's (a copy 16 pixels to the
+  side in other colours) or narrow stripes with empty columns between. Seen on the desktop after Ctrl+Q and once in
+  the game's rank screen; the next resolution change may cure it again; not every time, it depends on the moment.
+  Ruled out by measurement (`tools/ladump`: LADUMP.PRG dumps on a clean and a garbled desktop): TOS's line-A and
+  screen variables, the video registers $8201-$8265 and the palette were identical. Not the fine scroll's second
+  address $8264 (AGT never writes it). Tried, not enough: `Vsync()` before every `Setscreen` (abd8730, kept: EmuTOS
+  does the same against the "plane-shift bug"). Suspect: the STE shifter's internal plane/prefetch state, left by a
+  register write during the display (AGT's panel split writes $8265/$820f mid-frame; a resolution change
+  mid-display). Not in Hatari. Next steps when there is time at the machine: `tools/ladump/SHFIX1-3.PRG` (medium /
+  high resolution for one frame, $8264 cleared) on a garbled desktop, to find a write that resets the shifter; then
+  put it into the exit and the start. Related: the runner text above, Super Cars II #130 (Mega STE, same pattern).
+
 - **A chasing enemy plane does not attack** (deferred, seen in Hatari with 1.0.0+f248896): a plane
   that chases the player gets right behind it but does not fire; it turns round, then follows again, and repeats
   that cycle. Looked at so far: a Zero from an airfield (map d) behind a plane flying straight and level holds 131 px

@@ -4,6 +4,8 @@
 # Usage: ./deploy_ste.sh [--no-run] [--packed] [--from=<build folder>]      host: $SIDECART_HOST (default sidecart.local)
 #   uploads the build (./disk1) to /WOF
 #   ./deploy_ste.sh --run=<n>   the run build (make runs) with the scripted runs (game/runs) in /WOFRUN, run n started
+#   --atw: the debug builds with the frame profile on an ATW800/2 card (make atw / atwrun): WOFATW.PRG beside the
+#   game in /WOF and started; with --run=<n> the run build's ATW variant as /WOFRUN/WOFRUN.PRG
 #   ./deploy_ste.sh --quit      ends the program running there (remote quit); --log=<n>: run n's log to stdout
 set -e
 . "$(dirname "$0")/../tools/env.sh"
@@ -29,6 +31,7 @@ for a in "$@"; do
     --run=*) RUNNR="${a#--run=}"; REMOTE=/WOFRUN ;;   # scripted run n (make runs, tools/make_runs.py) in /WOFRUN
     --log=*) exec curl -s --max-time 30 "$API/gemdrive/files/WOFRUN/RUNS/RUN${a#--log=}.LOG" ;;   # that run's log
     --no-run) RUN=0 ;;
+    --atw) ATW=1 ;;                   # the ATW800/2 debug builds (make atw / make atwrun)
     --sound) SND=1 ;;                 # the sound build (make sound) is uploaded as WOF.PRG
     --from=*) DISK="${a#--from=}"; NOBUILD=1 ;;   # a built disk folder (builds/...): no rebuild
     --packed) DISK=disk_rel ;;        # the packed release disk (tools/pack_disk.py): 0.7 MB instead of 5.4
@@ -45,6 +48,9 @@ if [ -n "$RUNNR" ]; then
   make runs > build_runs.log 2>&1 || { tail -20 build_runs.log; exit 1; }
   python3 ../tools/make_runs.py > /dev/null
 fi
+if [ -n "$ATW" ]; then
+  make $([ -n "$RUNNR" ] && echo atwrun || echo atw) > build_atw.log 2>&1 || { tail -20 build_atw.log; exit 1; }
+fi
 [ -d "$DISK" ] || { echo "$DISK missing"; exit 1; }
 # The work is done by tools/cart_deploy.py: only files the card lacks are
 # sent; files that are replaced go to the store /OLD/<folder> on the card by renaming, and an earlier deployment
@@ -57,10 +63,12 @@ ID="$(sed 's/#define WOF_VERSION "\([^ ]*\) .*/\1/' version.h 2>/dev/null)"   # 
 ARGS=(--file "$PRG=WOF.PRG")
 if [ -n "$RUNNR" ]; then
   ID="$ID runs"
-  ARGS=(--file "$DISK/WOFRUN.PRG=WOFRUN.PRG")
+  ARGS=(--file "$DISK/$([ -n "$ATW" ] && echo WOFATWR.PRG || echo WOFRUN.PRG)=WOFRUN.PRG")
+  [ -n "$ATW" ] && ID="$ID atw"
   for f in runs/*.TXT; do ARGS+=(--file "$f=RUNS/$(basename "$f")"); done
 fi
 [ -f $DISK/WOFDIAG.PRG ] && [ -z "$RUNNR" ] && ARGS+=(--file "$DISK/WOFDIAG.PRG=WOFDIAG.PRG")
+[ -n "$ATW" ] && [ -z "$RUNNR" ] && ARGS+=(--file "$DISK/WOFATW.PRG=WOFATW.PRG")
 for f in $(cd $DISK && ls); do     # every data file of the disk folder (unpacked: assets; packed: bundles)
   [ -f "$DISK/$f" ] || continue
   case "$f" in *.PRG|*.prg|map.txt|MAP.TXT|replay.txt|REPLAY.TXT|HISCORE.DAT) continue ;; esac
@@ -77,6 +85,6 @@ if [ -n "$RUNNR" ]; then
   curl -s --max-time 10 -X DELETE "$API/gemdrive/files/WOFRUN/RUNS/RUN$RUNNR.LOG" > /dev/null || true   # (no old log mistaken for the new one)
   $SC runner run WOFRUN.PRG RUN$RUNNR
 else
-  $SC runner run WOF.PRG
+  $SC runner run $([ -n "$ATW" ] && echo WOFATW.PRG || echo WOF.PRG)
 fi
 $SC runner status
