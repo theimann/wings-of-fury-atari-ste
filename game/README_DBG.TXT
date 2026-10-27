@@ -5,7 +5,8 @@ This is not a release of the game. It is a reference build showing how
 atw-snoop is used: a live frame profile of a running game on the second
 video output of an ATW800/2 card, at almost no cost to the game.
 Tested on a Mega STE with TOS 2.06 only. The method also applies to the
-TT, but this build has not been tried there. Source and documentation: github.com/theimann/atw-snoop
+TT, but this build has not been tried there.
+Source and documentation: github.com/theimann/atw-snoop
 The game itself: www.atari.love/wof
 
 The game runs on the Atari's own screen; the card's output shows where
